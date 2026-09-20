@@ -26,6 +26,11 @@ dsh plugin --profile web add @goodandready/dsh-github-ops
 | `defaultRepository` | 空 | 未传 `repository` 时使用的 `owner/repo`。 |
 | `baseUrl` | `https://api.github.com` | API 地址，GitHub Enterprise 时修改。 |
 | `timeoutMs` | `30000` | 单次请求超时。 |
+| `maxRetries` | `2` | 读取失败时的重试次数（写入不重试）。 |
+| `reviewRulesJson` | 空 | 以 JSON 覆盖评审规则：`sensitivePaths`、`sensitiveSeverity`、`attentionPaths`、`migrationPaths`、`testsRequired`、`sourcePatterns`、`testPatterns`、`largeDiffLines`。 |
+| `allowedActions` | 全部 | 允许执行的写操作；其余一律拒绝，且每个都会询问确认。 |
+| `autoApprove` | 空 | 非交互运行（`DSH_GITHUB_OPS_UNATTENDED=1`）可免除询问的操作；破坏性操作永远不会被自动批准。 |
+| `reviewJobTimeoutMs` | `120000` | 后台评审任务的最长运行时间。 |
 
 ## 工具
 
@@ -104,6 +109,15 @@ dsh plugin --profile web add @goodandready/dsh-github-ops
 设置在插件自己的页面上（插件列表座位 `plugins.item`，并保留行座位与旧版
 `settings.plugin.item`）：凭据名称、默认仓库、API 地址、请求超时。卡片会检查设置快照的
 **状态**，在设置服务不可用时明确说明，而不是画出一个看似可用的表单。
+
+## 后台评审与斜杠命令
+
+`gh_review_job` 立即返回任务 id，`gh_review_job_status` 读取结果。宿主提供任务注册表时，
+任务可在界面中查看与取消；否则在插件内部运行。
+
+斜杠命令是人类的快捷入口：`/pr create [title]`、`/review [number]`、
+`/issue new <title> | list | show <number>`、`/gh [分组|工具]`。命令本身**不会**写入 GitHub，
+只是把指令交给模型，因此写入仍然经过审批关卡。
 
 ## 安全边界
 
