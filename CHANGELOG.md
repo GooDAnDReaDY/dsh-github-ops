@@ -2,6 +2,16 @@
 
 Notable changes to `@goodandready/dsh-github-ops`.
 
+## 0.1.2
+
+- Removed the write-approval contour the plugin never should have had: no `tools/pre-execute`
+  listener, no `allowedActions`, `autoApprove` or `approvalMode`, no action map. Approvals are
+  the host's business (the permission policy and dsh-approval-gate); a GitHub tool plugin that
+  registers its own gate duplicates the contour and, in a session where prompts are disabled,
+  turns every agreed write into a rejection — which is exactly what happened on 20.09.2026.
+  The `confirm` flags and the outright refusals (deleting or transferring a repository,
+  deleting an organization) stay: those are this plugin's own contract.
+
 ## 0.1.1 — released
 
 - `approvalMode` with "auto" as the default: an agreed, non-destructive write goes through

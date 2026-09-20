@@ -66,9 +66,6 @@ Requires a GitHub token in the DSH credential service. Store the token under a n
 | `timeoutMs` | `30000` | Per-request timeout. |
 | `maxRetries` | `2` | Retries for a failed read (never for a write). |
 | `reviewRulesJson` | *(empty)* | Review-rule overrides as JSON: `sensitivePaths`, `sensitiveSeverity`, `attentionPaths`, `migrationPaths`, `testsRequired`, `sourcePatterns`, `testPatterns`, `largeDiffLines`. |
-| `approvalMode` | `auto` | `auto` lets agreed non-destructive writes through without a prompt; deleting a release, tag, secret, variable, ruleset or branch protection, and cancelling a run, always ask. `ask` asks on every write; `off` leaves approvals to the host. |
-| `allowedActions` | *(all)* | Write actions the plugin may perform; anything else is denied. Each one still asks. |
-| `autoApprove` | *(empty)* | Actions an unattended run (`DSH_GITHUB_OPS_UNATTENDED=1`) may perform without asking. Destructive actions are never auto-approved. |
 | `reviewJobTimeoutMs` | `120000` | How long a background review job may run. |
 
 ## Tools
@@ -166,8 +163,10 @@ still passes through the approval gate.
 ## Safety
 
 - The token lives in the DSH credential service; settings hold only its name.
-- Read operations never change state; mutations are confirmed explicitly, and deleting a
-  repository, transferring one or deleting an organization is refused outright.
+- Read operations never change state. A state-changing tool needs an explicit `confirm`
+  flag, deleting a repository, transferring one or deleting an organization is refused
+  outright, and whether a prompt is shown is the host approval contour — the plugin does
+  not run an approval gate of its own.
 - The client never logs the token, and every failure is reported as a value
   (`ok: false` with `status`, `code`, `rateLimit`) instead of an exception.
 - Findings from `gh_review` are deterministic rules: they point at what needs attention
