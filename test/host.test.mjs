@@ -35,6 +35,16 @@ test('tools report failures as values, never as thrown errors', () => {
   assert.match(source, /const out = \{ ok: false, error: describeError\(err\) \}/)
 })
 
+test('a tool name taken by another plugin is skipped, never fatal', () => {
+  // The core throws "tool \"pr_create\" is already registered" and an error from apply()
+  // takes the whole plugin tree — and the harness — down. Another GitHub plugin may own
+  // the same names, so the collision must degrade instead of crashing.
+  assert.match(source, /is already registered/, 'the duplicate-name error must be recognised')
+  assert.match(source, /skippedTools\.push\(toolName\)/, 'the skipped name must be recorded')
+  assert.match(source, /skippedTools\.length/, 'skipped names must be reported once')
+  assert.match(source, /try \{\s*ctx\.tools\.register\(definition\)/)
+})
+
 test('the host half imports the schemastery default export, not a named z', () => {
   assert.match(source, /^import Schema from '@deepseek-ai\/schemastery'$/m)
   assert.ok(!/import \{ z \}/.test(source), 'a named z import crashes at load time on a real host')
