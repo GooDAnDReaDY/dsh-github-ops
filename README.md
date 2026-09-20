@@ -24,7 +24,8 @@ Requires a GitHub token in the DSH credential service. Store the token under a n
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `tokenEnv` | `GITHUB_TOKEN` | Name of the DSH credential holding the GitHub token. The token itself is never stored in settings. |
+| `tokenEnv` | `GITHUB_TOKEN` | Name looked up in the DSH credentials, then the environment, then the `gh` CLI. The value is never stored in settings. |
+| `tokenSource` | `auto` | Where access comes from: `auto` tries the DSH credential, then the environment variable, then the `gh` CLI session; pin it to `credentials`, `env` or `gh`. |
 | `defaultRepository` | *(empty)* | `owner/repo` used by tools that omit `repository`. |
 | `baseUrl` | `https://api.github.com` | API base; change it for GitHub Enterprise. |
 | `timeoutMs` | `30000` | Per-request timeout. |

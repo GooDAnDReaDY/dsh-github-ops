@@ -24,7 +24,8 @@ dsh plugin --profile web add @goodandready/dsh-github-ops
 
 | Настройка | Значение по умолчанию | Смысл |
 |---|---|---|
-| `tokenEnv` | `GITHUB_TOKEN` | Имя учётной записи DSH с токеном GitHub; сам токен в настройках не хранится. |
+| `tokenEnv` | `GITHUB_TOKEN` | Имя, которое ищется в креденшелах DSH, затем в переменной окружения, затем в `gh` CLI. Само значение в настройках не хранится. |
+| `tokenSource` | `auto` | Откуда берётся доступ: `auto` — креденшел DSH, затем переменная окружения, затем сессия `gh`; можно зафиксировать `credentials`, `env` или `gh`. |
 | `defaultRepository` | пусто | `owner/repo`, если в вызове инструмента репозиторий не указан. |
 | `baseUrl` | `https://api.github.com` | База API; меняется для GitHub Enterprise. |
 | `timeoutMs` | `30000` | Таймаут одного запроса. |

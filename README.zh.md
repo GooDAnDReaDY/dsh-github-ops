@@ -21,7 +21,8 @@ dsh plugin --profile web add @goodandready/dsh-github-ops
 
 | 设置 | 默认值 | 含义 |
 |---|---|---|
-| `tokenEnv` | `GITHUB_TOKEN` | 存放 GitHub token 的 DSH 凭据名称；token 本身不写入设置。 |
+| `tokenEnv` | `GITHUB_TOKEN` | 依次在 DSH 凭据、环境变量与 `gh` CLI 中查找该名称；取值本身不写入设置。 |
+| `tokenSource` | `auto` | 访问来源：`auto` 依次尝试 DSH 凭据、环境变量与 `gh` CLI 会话；可固定为 `credentials`、`env` 或 `gh`。 |
 | `defaultRepository` | 空 | 未传 `repository` 时使用的 `owner/repo`。 |
 | `baseUrl` | `https://api.github.com` | API 地址，GitHub Enterprise 时修改。 |
 | `timeoutMs` | `30000` | 单次请求超时。 |
