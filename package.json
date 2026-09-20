@@ -1,0 +1,65 @@
+{
+  "name": "@goodandready/dsh-github-ops",
+  "version": "0.1.0",
+  "description": "GitHub operations for DeepSeek Harness: releases, tags, a guarded generic API pass-through, workflow runs, secrets and sanitized mirror publication.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "LICENSE",
+    "CHANGELOG.md",
+    "README.md",
+    "README.zh.md",
+    "README.ru.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "pretest": "node --check lib/index.js && node --check lib/github.js && node --check lib/tools/releases.js && node --check lib/tools/tags.js && node --check lib/tools/api.js",
+    "test": "node --test test/*.test.mjs"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-credentials": "^0.1.0-rc.8",
+    "@deepseek-ai/dsh-settings": "^0.1.0-rc.8",
+    "@deepseek-ai/dsh-tools": "^0.1.0-rc.8",
+    "@deepseek-ai/schemastery": "^3.18.1"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-credentials": "^0.1.0-rc.8",
+    "@deepseek-ai/dsh-settings": "^0.1.0-rc.8",
+    "@deepseek-ai/dsh-tools": "^0.1.0-rc.8",
+    "@deepseek-ai/schemastery": "^3.18.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GooDAnDReaDY/dsh-github-ops.git"
+  },
+  "homepage": "https://github.com/GooDAnDReaDY/dsh-github-ops#readme",
+  "bugs": {
+    "url": "https://github.com/GooDAnDReaDY/dsh-github-ops/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "author": "GooDAnDReaDY <support@goodandready.app>",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "github",
+    "releases",
+    "tags",
+    "mirror",
+    "ci"
+  ]
+}
