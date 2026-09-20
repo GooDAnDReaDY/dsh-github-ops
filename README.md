@@ -1,4 +1,39 @@
-# dsh-github-ops
+# 📦 @goodandready/dsh-github-ops
+
+<div align="center">
+
+<h3>Advanced GitHub Operations, Releases, CI Runs, Secrets & Sanitized Mirrors for DeepSeek Harness</h3>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@goodandready/dsh-github-ops"><img src="https://img.shields.io/npm/v/@goodandready/dsh-github-ops.svg?style=for-the-badge&color=6366f1&labelColor=1e1b4b" alt="npm version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/GooDAnDReaDY/dsh-github-ops.svg?style=for-the-badge&color=10b981&labelColor=064e3b" alt="license"></a>
+  <a href="https://github.com/topics/dsh-plugin"><img src="https://img.shields.io/badge/DSH-Plugin-8b5cf6.svg?style=for-the-badge&labelColor=2e1065" alt="DSH Plugin"></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node-20%2B-f59e0b.svg?style=for-the-badge&labelColor=451a03" alt="Node version"></a>
+</p>
+
+<p align="center">
+  <a href="https://goodandready.app/"><img src="https://img.shields.io/badge/All_Author_Projects-goodandready.app-ff4500.svg?style=for-the-badge&logo=rocket&logoColor=white&labelColor=1a1a2e" alt="All Author Projects"></a>
+</p>
+
+<p align="center">
+  <a href="README.md"><b>🇬🇧 English</b></a> •
+  <a href="README.zh.md"><b>🇨🇳 中文说明</b></a> •
+  <a href="README.ru.md"><b>🇷🇺 Русский</b></a>
+</p>
+
+<table align="center">
+  <tr>
+    <td align="center">
+      ⭐ <strong>If you like this plugin, please star it on GitHub</strong> — it shows me that the plugin is useful to you and motivates me to keep developing it.
+      <br><br>
+      🐛 <strong>If you find a bug or would like to request a feature</strong>, open a GitHub issue in any language — I will review your proposal and implement useful suggestions in a future plugin version.
+    </td>
+  </tr>
+</table>
+
+</div>
+
+---
 
 GitHub operations for [DeepSeek Harness](https://github.com/topics/dsh-plugin): releases,
 tags, a guarded generic API pass-through, workflow runs, secrets and sanitized mirror
