@@ -31,13 +31,29 @@ the reference GitHub plugin plus the operations our release pipeline needs.
   CI rollup and deterministic findings), `review_post` (summary or inline),
   `gh_checks`, `ci_run` (one-shot review with a rule-based verdict).
 
+- Mirror tools: `gh_mirror_check` (read-only plan: what would be published, what stays
+  behind, and why a publication must be refused) and `gh_mirror_publish` (one commit on
+  top of the mirror branch, fast-forward, never a force; `dryRun`, `confirm: true`).
+  The allowlist is the package manifest's own `files` plus README/LICENSE/CHANGELOG/
+  `cordis.patch.yml`; `docs/**` and agent instructions are forbidden even when a manifest
+  lists them, while shipped tooling such as `scripts/**` is published because it is part
+  of the package.
+- Workflow-run tools: `gh_run_list`, `gh_run_view`, `gh_run_jobs` (failed steps named),
+  `gh_run_rerun` (all or failed-only), `gh_run_cancel`, `gh_run_logs` (returns the zip
+  URL instead of pulling a binary into the conversation).
+- Repository settings tools: `gh_variable_list/set/delete`, `gh_secret_list/set/delete`,
+  `gh_ruleset_list/view/apply/delete`, `gh_branch_protection_get/set/delete`.
+  Setting a secret uses GitHub sealed-box encryption through the optional `tweetnacl`
+  package; without it the tool explains what to install rather than writing a broken
+  value.
+- Browser half: a settings card on the plugin's own page (the plugin-list seat
+  `plugins.item`, plus the row seat and the legacy `settings.plugin.item` card) with
+  locales `en`/`zh`, a snapshot-status check so an unavailable settings service is stated
+  instead of hidden, all-changed-fields saving with per-field failure reporting, and a
+  style element tagged `data-dsh-plugin="dsh-github-ops"`.
+
 ### Planned (release blockers)
-- Mirror tools: `gh_mirror_check`, `gh_mirror_publish` (sanitized product tree,
-  fast-forward, never a force).
-- Workflow tools: `gh_run_list`, `gh_run_view`, `gh_run_rerun`, `gh_run_cancel`,
-  `gh_run_logs`.
-- Repository settings tools: `gh_secret_set/list`, `gh_variable_set/list`,
-  `gh_ruleset_list/apply`, `gh_branch_protection_get/set`, `gh_repo_create`,
-  `gh_repo_edit`.
-- Settings card in the plugins page (the `plugins.item` seat), locales `en`/`zh`,
-  design contract, release notes for `dsh-russian-lang`.
+- Release notes for `dsh-russian-lang` (the card adds no new user-facing strings beyond
+  the four settings, but the translation issue must be filed before publishing).
+- Verification on the isolated DSH test server, then acceptance on production, then the
+  public release (npm + GitHub) after an explicit go-ahead.

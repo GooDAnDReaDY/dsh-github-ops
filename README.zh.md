@@ -55,12 +55,62 @@ dsh plugin --profile web add @goodandready/dsh-github-ops
 `POST`/`PATCH`/`PUT`/`DELETE` 需要 `confirm: true`。删除仓库、转移仓库、删除组织会被直接拒绝——
 这类操作无法靠一次确认变得安全。
 
+### Issue 与 Pull Request
+
+| 工具 | 作用 |
+|---|---|
+| `gh_issue` | 列出或读取 issue（`action: list/get/comments`）；PR 以 `kind: "pr"` 返回。 |
+| `issue_open`、`issue_comment`、`issue_close` | 创建 issue、评论、关闭（可带原因）。 |
+| `gh_search` | 使用 GitHub 搜索语法检索 issue 与 PR（独立配额）。 |
+| `pr_create`、`pr_update` | 从 head 分支创建 PR；修改标题、正文、状态或目标分支。 |
+| `pr_merge` | 合并 PR（merge/squash/rebase），可选择删除 head 分支。 |
+| `gh_review` | 一个完整评审包：元数据、涉及范围、限量 diff、评论、CI 汇总与确定性发现（密钥、迁移、CI 配置、改源码未改测试、超大 diff）。 |
+| `review_post` | 发布评审：一条汇总评论，或按行内联评论。 |
+| `gh_checks` | 某个提交的 check runs、旧式状态与统一结论。 |
+| `ci_run` | 对 PR 做一次性评审并给出基于规则的结论。 |
+
+### 镜像发布
+
+| 工具 | 作用 |
+|---|---|
+| `gh_mirror_check` | 只读计划：哪些产品文件会进入镜像、多少文件会留在原地、以及为何必须拒绝发布。 |
+| `gh_mirror_publish` | 发布净化后的树：在镜像分支之上一个提交，fast-forward，**绝不 force**。`dryRun: true` 仅预览；写入需要 `confirm: true`。 |
+
+白名单取自包清单自身的 `files`，加上 `.gitignore`、`LICENSE`、README 三件套、
+`CHANGELOG.md` 和 `cordis.patch.yml`。即使清单里列了 `docs/**` 与代理说明文件也会被禁止；
+像 `scripts/**` 这种随包发布的工具则会进入镜像，因为它属于包内容。
+
+### 工作流运行
+
+| 工具 | 作用 |
+|---|---|
+| `gh_run_list`、`gh_run_view` | 列出运行（可按分支、工作流、状态过滤）与读取单个运行。 |
+| `gh_run_jobs` | 作业及其步骤，并单独列出失败的步骤——通常足以定位失败原因。 |
+| `gh_run_rerun`、`gh_run_cancel` | 重跑全部或仅失败作业；取消进行中的运行（需要 `confirm: true`）。 |
+| `gh_run_logs` | 返回日志压缩包地址：GitHub 以 302 指向 zip，不会把二进制拉进对话。 |
+
+### 仓库设置
+
+| 工具 | 作用 |
+|---|---|
+| `gh_variable_list/set/delete` | Actions 变量，仓库级或按环境。 |
+| `gh_secret_list/set/delete` | Actions 密钥。写入使用 sealed-box 加密，需要可选的 `tweetnacl`；缺失时会明确说明需要安装什么，而不是写入无效值。 |
+| `gh_ruleset_list/view/apply/delete` | 仓库 ruleset：读取、创建、更新、删除。 |
+| `gh_branch_protection_get/set/delete` | 经典分支保护：必需评审、状态检查、管理员强制、force push 与删除开关。 |
+
+### 插件设置卡片
+
+设置在插件自己的页面上（插件列表座位 `plugins.item`，并保留行座位与旧版
+`settings.plugin.item`）：凭据名称、默认仓库、API 地址、请求超时。卡片会检查设置快照的
+**状态**，在设置服务不可用时明确说明，而不是画出一个看似可用的表单。
+
 ## 安全边界
 
 - token 只存在于 DSH 凭据服务，设置中只有名称；
-- 读取操作不改变状态，写入必须显式确认；
+- 读取操作不改变状态，写入必须显式确认；删除仓库、转移仓库、删除组织会被直接拒绝；
 - 客户端不会输出 token，失败以返回值形式报告（`ok: false` 及 `status`、`code`、`rateLimit`），
-  不会中断整个回合。
+  不会中断整个回合；
+- `gh_review` 的发现是确定性规则：指出需要关注的地方，绝不冒充正确性结论。
 
 ## 路线图
 
