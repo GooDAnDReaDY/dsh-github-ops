@@ -7,6 +7,9 @@ import {
   describeError,
   GitHubError,
   DEFAULT_BASE_URL,
+  retryDelayMs,
+  SAFE_RETRY_METHODS,
+  RETRYABLE_STATUS,
 } from '../lib/github.js'
 
 /** Fake fetch: records calls, answers from a queue of canned responses. */
@@ -138,4 +141,122 @@ test('parseRepoSpec accepts owner/repo, with or without a PR number', () => {
 
 test('createGitHubClient refuses to be constructed without a transport', () => {
   assert.throws(() => createGitHubClient({ token: 't', fetchImpl: null }), /no fetch implementation/)
+})
+
+// ----------------------------------------------------------------- retries
+
+function scriptedFetch(steps) {
+  const calls = []
+  let index = 0
+  const impl = async (url, init = {}) => {
+    calls.push({ url, method: init.method || 'GET' })
+    const step = steps[Math.min(index, steps.length - 1)]
+    index += 1
+    if (step.throw) throw step.throw
+    const headers = new Map(Object.entries(step.headers || {}))
+    return {
+      ok: (step.status || 200) < 400,
+      status: step.status || 200,
+      headers: { get: (k) => (headers.has(k.toLowerCase()) ? headers.get(k.toLowerCase()) : null) },
+      text: async () => JSON.stringify(step.body ?? {}),
+    }
+  }
+  impl.calls = calls
+  return impl
+}
+
+test('a read is retried on a 5xx and succeeds on the next attempt', async () => {
+  const fetchImpl = scriptedFetch([{ status: 503, body: { message: 'Server Error' } }, { status: 200, body: { ok: true } }])
+  const slept = []
+  const client = createGitHubClient({ token: 't', fetchImpl, sleepImpl: async (ms) => { slept.push(ms) } })
+  const { data, attempts } = await client.get('/repos/o/r')
+  assert.deepEqual(data, { ok: true })
+  assert.equal(attempts, 2)
+  assert.equal(fetchImpl.calls.length, 2)
+  assert.equal(slept.length, 1)
+  assert.ok(slept[0] > 0, 'the second attempt waits')
+})
+
+test('a write is never retried: a failed write has an unknown outcome', async () => {
+  const fetchImpl = scriptedFetch([{ status: 503, body: { message: 'Server Error' } }])
+  const slept = []
+  const client = createGitHubClient({ token: 't', fetchImpl, sleepImpl: async (ms) => { slept.push(ms) } })
+  await assert.rejects(
+    () => client.post('/repos/o/r/issues', { title: 'x' }),
+    (err) => {
+      assert.equal(err.status, 503)
+      assert.equal(err.attempts, 1)
+      return true
+    },
+  )
+  assert.equal(fetchImpl.calls.length, 1, 'no second POST')
+  assert.deepEqual(slept, [])
+})
+
+test('a 429 waits for Retry-After and then retries a read', async () => {
+  const fetchImpl = scriptedFetch([
+    { status: 429, headers: { 'retry-after': '2' }, body: { message: 'Slow down' } },
+    { status: 200, body: { ok: true } },
+  ])
+  const slept = []
+  const client = createGitHubClient({ token: 't', fetchImpl, sleepImpl: async (ms) => { slept.push(ms) } })
+  const { attempts } = await client.get('/repos/o/r')
+  assert.equal(attempts, 2)
+  assert.deepEqual(slept, [2000])
+})
+
+test('a network failure is retried for a read and reported for a write', async () => {
+  const flaky = scriptedFetch([{ throw: new Error('socket hang up') }, { status: 200, body: { ok: true } }])
+  const client = createGitHubClient({ token: 't', fetchImpl: flaky, sleepImpl: async () => {} })
+  const { attempts } = await client.get('/repos/o/r')
+  assert.equal(attempts, 2)
+
+  const broken = scriptedFetch([{ throw: new Error('socket hang up') }])
+  const writer = createGitHubClient({ token: 't', fetchImpl: broken, sleepImpl: async () => {} })
+  await assert.rejects(() => writer.patch('/repos/o/r', {}), (err) => err.code === 'network' && err.attempts === 1)
+})
+
+test('retries stop at maxRetries and the failure says how many attempts were made', async () => {
+  const fetchImpl = scriptedFetch([{ status: 502, body: { message: 'Bad Gateway' } }])
+  const client = createGitHubClient({ token: 't', fetchImpl, maxRetries: 2, sleepImpl: async () => {} })
+  await assert.rejects(
+    () => client.get('/repos/o/r'),
+    (err) => {
+      assert.equal(err.attempts, 3)
+      assert.match(describeError(err), /3 attempts/)
+      return true
+    },
+  )
+  assert.equal(fetchImpl.calls.length, 3)
+})
+
+test('a 404 is not retried: it is an answer, not a hiccup', async () => {
+  const fetchImpl = scriptedFetch([{ status: 404, body: { message: 'Not Found' } }])
+  const client = createGitHubClient({ token: 't', fetchImpl, sleepImpl: async () => { throw new Error('must not sleep') } })
+  await assert.rejects(() => client.get('/repos/o/missing'), (err) => err.status === 404)
+  assert.equal(fetchImpl.calls.length, 1)
+})
+
+test('retryDelayMs prefers Retry-After, then the limit reset, then backoff, and always caps', () => {
+  const headersOf = (map) => ({ get: (k) => map[k.toLowerCase()] ?? null })
+  assert.equal(retryDelayMs({ headers: headersOf({ 'retry-after': '3' }) }), 3000)
+  assert.equal(retryDelayMs({ headers: headersOf({ 'retry-after': '999' }), maxDelayMs: 10000 }), 10000)
+  const future = new Date(Date.now() + 4000).toUTCString()
+  const dated = retryDelayMs({ headers: headersOf({ 'retry-after': future }), maxDelayMs: 10000 })
+  assert.ok(dated > 3000 && dated <= 10000, `HTTP-date honoured, got ${dated}`)
+  const reset = Math.floor((Date.now() + 3000) / 1000)
+  const limit = retryDelayMs({ headers: headersOf({ 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(reset) }), maxDelayMs: 10000 })
+  assert.ok(limit > 1000 && limit <= 10000, `limit reset honoured, got ${limit}`)
+  assert.equal(retryDelayMs({ attempt: 1, baseMs: 500 }), 500)
+  assert.equal(retryDelayMs({ attempt: 4, baseMs: 500 }), 4000)
+  assert.equal(retryDelayMs({ attempt: 9, baseMs: 500, maxDelayMs: 10000 }), 10000)
+})
+
+test('SAFE_RETRY_METHODS covers reads only', () => {
+  assert.ok(SAFE_RETRY_METHODS.has('GET'))
+  assert.ok(SAFE_RETRY_METHODS.has('HEAD'))
+  assert.ok(!SAFE_RETRY_METHODS.has('POST'))
+  assert.ok(!SAFE_RETRY_METHODS.has('DELETE'))
+  assert.ok(RETRYABLE_STATUS.has(429) && RETRYABLE_STATUS.has(503))
+  assert.ok(!RETRYABLE_STATUS.has(404))
 })
