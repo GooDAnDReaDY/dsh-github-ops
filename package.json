@@ -23,7 +23,7 @@
     }
   },
   "scripts": {
-    "pretest": "node --check lib/index.js && node --check lib/github.js && node --check lib/tools/releases.js && node --check lib/tools/tags.js && node --check lib/tools/api.js",
+    "pretest": "for f in lib/index.js lib/github.js lib/tools/*.js; do node --check \"$f\" || exit 1; done",
     "test": "node --test test/*.test.mjs"
   },
   "peerDependencies": {
