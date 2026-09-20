@@ -93,3 +93,54 @@ test('deleteRelease resolves the tag first and deletes by id', async () => {
   assert.equal(client.calls.at(-1).path, '/repos/o/r/releases/7')
   assert.equal(client.calls.at(-1).method, 'DELETE')
 })
+
+test('editRelease and deleteRelease find a DRAFT release the by-tag endpoint hides', async () => {
+  // GitHub answers 404 to /releases/tags/{tag} for a draft release, even to the token
+  // that just created it; the list endpoint does see drafts, so a miss falls back to it.
+  // Found by the live smoke run: "gh_release_edit — Not Found".
+  const calls = []
+  const client = {
+    get: async (path) => {
+      calls.push(path)
+      if (path.includes('/releases/tags/')) {
+        const err = new Error('Not Found')
+        err.status = 404
+        throw err
+      }
+      return { data: [{ id: 9, tag_name: 'v0.1.0-draft', draft: true, assets: [] }] }
+    },
+    patch: async (path, body) => { calls.push(path); return { data: { id: 9, tag_name: 'v0.1.0-draft', name: body.name } } },
+    del: async (path) => { calls.push(path); return { data: null } },
+  }
+  const edited = await editRelease(client, { owner: 'o', repo: 'r', tag: 'v0.1.0-draft', name: 'renamed' })
+  assert.equal(edited.name, 'renamed')
+  assert.ok(calls.includes('/repos/o/r/releases/9'), 'the patch goes to the id from the list scan')
+
+  calls.length = 0
+  const deleted = await deleteRelease(client, { owner: 'o', repo: 'r', tag: 'v0.1.0-draft' })
+  assert.deepEqual(deleted, { deleted: true, id: 9, tag: 'v0.1.0-draft' })
+  assert.ok(calls.includes('/repos/o/r/releases/9'))
+})
+
+test('a real 404 that is not about drafts still reports the release as missing', async () => {
+  const client = {
+    get: async (path) => {
+      if (path.includes('/releases/tags/')) {
+        const err = new Error('Not Found')
+        err.status = 404
+        throw err
+      }
+      return { data: [] }
+    },
+    patch: async () => ({ data: {} }),
+    del: async () => ({ data: null }),
+  }
+  await assert.rejects(() => editRelease(client, { owner: 'o', repo: 'r', tag: 'v9' }), /release not found/)
+})
+
+test('a non-404 failure while resolving the id is not swallowed', async () => {
+  const client = {
+    get: async () => { const err = new Error('rate limited'); err.status = 403; throw err },
+  }
+  await assert.rejects(() => deleteRelease(client, { owner: 'o', repo: 'r', tag: 'v1' }), /rate limited/)
+})
