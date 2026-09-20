@@ -19,14 +19,19 @@ the reference GitHub plugin plus the operations our release pipeline needs.
 - `gh_api`: guarded generic pass-through — reads are free, `POST`/`PATCH`/`PUT`/`DELETE`
   require `confirm: true`, and deleting a repository, transferring one or deleting an
   organization is refused outright.
-- Tests without a harness and without a network: 25 cases covering URL building, error
-  mapping, rate limits, timeouts, pagination, GraphQL, tag object ordering and the
-  `gh_api` safety boundary.
+- Tests without a harness and without a network: 51 cases covering URL building, error
+  mapping, rate limits, timeouts, pagination, GraphQL, tag object ordering, base64 file
+  decoding, issue normalization, diff truncation, the CI rollup and the `gh_api` safety
+  boundary.
+- Repository tools: `gh_repo`, `gh_file` (file content at a ref, or a directory
+  listing), `gh_repo_search`, `gh_repo_create`, `gh_repo_edit`.
+- Issue tools: `gh_issue`, `issue_open`, `issue_comment`, `issue_close`, `gh_search`.
+- Pull request tools: `pr_create`, `pr_update`, `pr_merge` (merge/squash/rebase,
+  optional head-branch delete), `gh_review` (metadata, areas, capped diff, comments,
+  CI rollup and deterministic findings), `review_post` (summary or inline),
+  `gh_checks`, `ci_run` (one-shot review with a rule-based verdict).
 
 ### Planned (release blockers)
-- Parity tools: `pr_create`, `pr_update`, `pr_merge`, `gh_review`, `review_post`,
-  `gh_issue`, `issue_open`, `issue_comment`, `issue_close`, `gh_search`,
-  `gh_repo_search`, `gh_repo`, `gh_file`, `gh_checks`, `ci_run`.
 - Mirror tools: `gh_mirror_check`, `gh_mirror_publish` (sanitized product tree,
   fast-forward, never a force).
 - Workflow tools: `gh_run_list`, `gh_run_view`, `gh_run_rerun`, `gh_run_cancel`,
