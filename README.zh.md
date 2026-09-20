@@ -63,6 +63,7 @@ dsh plugin --profile web add @goodandready/dsh-github-ops
 | `timeoutMs` | `30000` | 单次请求超时。 |
 | `maxRetries` | `2` | 读取失败时的重试次数（写入不重试）。 |
 | `reviewRulesJson` | 空 | 以 JSON 覆盖评审规则：`sensitivePaths`、`sensitiveSeverity`、`attentionPaths`、`migrationPaths`、`testsRequired`、`sourcePatterns`、`testPatterns`、`largeDiffLines`。 |
+| `approvalMode` | `auto` | `auto` 允许已同意的非破坏性写入免询问；删除 release、tag、secret、变量、ruleset、分支保护或取消运行仍会询问。`ask` 每次询问；`off` 交由宿主决定。 |
 | `allowedActions` | 全部 | 允许执行的写操作；其余一律拒绝，且每个都会询问确认。 |
 | `autoApprove` | 空 | 非交互运行（`DSH_GITHUB_OPS_UNATTENDED=1`）可免除询问的操作；破坏性操作永远不会被自动批准。 |
 | `reviewJobTimeoutMs` | `120000` | 后台评审任务的最长运行时间。 |

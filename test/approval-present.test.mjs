@@ -20,14 +20,37 @@ test('gh_api counts as a write only when its method changes state', () => {
   assert.equal(actionFor(call('gh_api', { graphql: 'query { viewer { login } }' })), null, 'a query is not judged here')
 })
 
-test('every write action asks by default, and the reason says what will happen', () => {
+test('auto mode lets an agreed non-destructive write through without a prompt', () => {
   const decision = decide({ exec: call('pr_merge', { repository: 'o/r', number: 12, method: 'squash' }) })
+  assert.equal(decision.kind, 'allow', 'a session without prompts must not be blocked by a question')
+  assert.equal(decision.action, 'pr-merge')
+
+  const release = decide({ exec: call('gh_release_create', { repository: 'o/r', tag: 'v1.0.0', draft: true }) })
+  assert.equal(release.kind, 'allow')
+})
+
+test('ask mode asks on every write, and the reason says what will happen', () => {
+  const decision = decide({ exec: call('pr_merge', { repository: 'o/r', number: 12, method: 'squash' }), mode: 'ask' })
   assert.equal(decision.kind, 'ask')
   assert.equal(decision.action, 'pr-merge')
   assert.match(decision.reason, /MERGE pull request #12 in o\/r \(squash\)/)
 
-  const release = decide({ exec: call('gh_release_create', { repository: 'o/r', tag: 'v1.0.0', draft: true }) })
+  const release = decide({ exec: call('gh_release_create', { repository: 'o/r', tag: 'v1.0.0', draft: true }), mode: 'ask' })
   assert.match(release.reason, /create GitHub release v1\.0\.0 \(draft\) in o\/r/)
+})
+
+test('off mode leaves every decision to the host contour', () => {
+  for (const name of ['pr_create', 'gh_release_delete', 'gh_api']) {
+    const decision = decide({ exec: call(name, { repository: 'o/r', method: 'DELETE', path: '/x' }), mode: 'off' })
+    assert.equal(decision.kind, 'continue', name)
+  }
+})
+
+test('the allowedActions fence holds in every mode, including auto', () => {
+  const denied = decide({ exec: call('gh_repo_edit', { repository: 'o/r' }), allowedActions: ['pr-create'], mode: 'auto' })
+  assert.equal(denied.kind, 'deny')
+  const off = decide({ exec: call('gh_repo_edit', { repository: 'o/r' }), mode: 'off', allowedActions: ['pr-create'] })
+  assert.equal(off.kind, 'continue', 'off means the plugin has no opinion at all')
 })
 
 test('a destructive action is always asked, even when it is in autoApprove', () => {
@@ -51,15 +74,17 @@ test('an unattended run may auto-approve a listed, non-destructive action', () =
     exec: call('gh_release_create', { repository: 'o/r', tag: 'v1.0.0' }),
     autoApprove: [],
     unattended: true,
+    mode: 'ask',
   })
-  assert.equal(notListed.kind, 'ask', 'unattended without an allowlist still asks')
+  assert.equal(notListed.kind, 'ask', 'in ask mode, unattended without an allowlist still asks')
 
   const attended = decide({
     exec: call('gh_release_create', { repository: 'o/r', tag: 'v1.0.0' }),
     autoApprove: ['release-create'],
     unattended: false,
+    mode: 'ask',
   })
-  assert.equal(attended.kind, 'ask', 'an interactive session always asks')
+  assert.equal(attended.kind, 'ask', 'in ask mode an interactive session always asks')
 })
 
 test('an action outside allowedActions is denied, not asked', () => {
@@ -69,8 +94,9 @@ test('an action outside allowedActions is denied, not asked', () => {
 })
 
 test('an empty or missing allowedActions means every known action is allowed', () => {
-  assert.equal(decide({ exec: call('pr_create', { repository: 'o/r', title: 't', head: 'h' }) }).kind, 'ask')
-  assert.equal(decide({ exec: call('pr_create', { repository: 'o/r' }), allowedActions: [] }).kind, 'ask')
+  assert.equal(decide({ exec: call('pr_create', { repository: 'o/r', title: 't', head: 'h' }) }).kind, 'allow')
+  assert.equal(decide({ exec: call('pr_create', { repository: 'o/r' }), allowedActions: [] }).kind, 'allow')
+  assert.equal(decide({ exec: call('pr_create', { repository: 'o/r' }), mode: 'ask' }).kind, 'ask')
   assert.ok(ALL_ACTIONS.length > 15)
 })
 

@@ -66,6 +66,7 @@ dsh plugin --profile web add @goodandready/dsh-github-ops
 | `timeoutMs` | `30000` | Таймаут одного запроса. |
 | `maxRetries` | `2` | Повторы для неудачного чтения (запись не повторяется). |
 | `reviewRulesJson` | пусто | Переопределение правил ревью в JSON: `sensitivePaths`, `sensitiveSeverity`, `attentionPaths`, `migrationPaths`, `testsRequired`, `sourcePatterns`, `testPatterns`, `largeDiffLines`. |
+| `approvalMode` | `auto` | `auto` — согласованные неразрушительные записи проходят без вопроса; удаление релиза, тега, секрета, переменной, ruleset, защиты веток и отмена запуска спрашивают всегда. `ask` — спрашивать на каждую запись; `off` — решение целиком за штатным гейтом развёртывания. |
 | `allowedActions` | все | Разрешённые записи; всё остальное отклоняется, и каждая всё равно спрашивает подтверждение. |
 | `autoApprove` | пусто | Действия, которые неавтономный прогон (`DSH_GITHUB_OPS_UNATTENDED=1`) может выполнить без вопроса; разрушительные не автоутверждаются никогда. |
 | `reviewJobTimeoutMs` | `120000` | Сколько может работать фоновая задача ревью. |

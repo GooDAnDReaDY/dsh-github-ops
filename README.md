@@ -66,6 +66,7 @@ Requires a GitHub token in the DSH credential service. Store the token under a n
 | `timeoutMs` | `30000` | Per-request timeout. |
 | `maxRetries` | `2` | Retries for a failed read (never for a write). |
 | `reviewRulesJson` | *(empty)* | Review-rule overrides as JSON: `sensitivePaths`, `sensitiveSeverity`, `attentionPaths`, `migrationPaths`, `testsRequired`, `sourcePatterns`, `testPatterns`, `largeDiffLines`. |
+| `approvalMode` | `auto` | `auto` lets agreed non-destructive writes through without a prompt; deleting a release, tag, secret, variable, ruleset or branch protection, and cancelling a run, always ask. `ask` asks on every write; `off` leaves approvals to the host. |
 | `allowedActions` | *(all)* | Write actions the plugin may perform; anything else is denied. Each one still asks. |
 | `autoApprove` | *(empty)* | Actions an unattended run (`DSH_GITHUB_OPS_UNATTENDED=1`) may perform without asking. Destructive actions are never auto-approved. |
 | `reviewJobTimeoutMs` | `120000` | How long a background review job may run. |
