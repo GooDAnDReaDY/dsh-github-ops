@@ -1,4 +1,39 @@
-# dsh-github-ops
+# 📦 @goodandready/dsh-github-ops
+
+<div align="center">
+
+<h3>面向 DeepSeek Harness 的高级 GitHub 操作、发布、CI 运行、密钥与净化镜像套件</h3>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@goodandready/dsh-github-ops"><img src="https://img.shields.io/npm/v/@goodandready/dsh-github-ops.svg?style=for-the-badge&color=6366f1&labelColor=1e1b4b" alt="npm version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/GooDAnDReaDY/dsh-github-ops.svg?style=for-the-badge&color=10b981&labelColor=064e3b" alt="license"></a>
+  <a href="https://github.com/topics/dsh-plugin"><img src="https://img.shields.io/badge/DSH-Plugin-8b5cf6.svg?style=for-the-badge&labelColor=2e1065" alt="DSH Plugin"></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node-20%2B-f59e0b.svg?style=for-the-badge&labelColor=451a03" alt="Node version"></a>
+</p>
+
+<p align="center">
+  <a href="https://goodandready.app/"><img src="https://img.shields.io/badge/作者全部项目-goodandready.app-ff4500.svg?style=for-the-badge&logo=rocket&logoColor=white&labelColor=1a1a2e" alt="作者全部项目"></a>
+</p>
+
+<p align="center">
+  <a href="README.md"><b>🇬🇧 English</b></a> •
+  <a href="README.zh.md"><b>🇨🇳 中文说明</b></a> •
+  <a href="README.ru.md"><b>🇷🇺 Русский</b></a>
+</p>
+
+<table align="center">
+  <tr>
+    <td align="center">
+      ⭐ <strong>如果您喜欢这个插件，请在 GitHub 上为它点亮 Star</strong> — 这能让我知道插件对您有用，并鼓励我继续开发和维护它。
+      <br><br>
+      🐛 <strong>如果您发现 Bug 或希望增加功能</strong>，请使用任意语言在 GitHub 上提交 Issue — 我会评估您的建议，并在后续版本中实现有价值的改进。
+    </td>
+  </tr>
+</table>
+
+</div>
+
+---
 
 面向 [DeepSeek Harness](https://github.com/topics/dsh-plugin) 的 GitHub 操作插件：发布（release）、
 标签（tag）、受保护的通用 API 直通、工作流运行、密钥，以及经过净化的镜像发布。
@@ -28,6 +63,7 @@ dsh plugin --profile web add @goodandready/dsh-github-ops
 | `timeoutMs` | `30000` | 单次请求超时。 |
 | `maxRetries` | `2` | 读取失败时的重试次数（写入不重试）。 |
 | `reviewRulesJson` | 空 | 以 JSON 覆盖评审规则：`sensitivePaths`、`sensitiveSeverity`、`attentionPaths`、`migrationPaths`、`testsRequired`、`sourcePatterns`、`testPatterns`、`largeDiffLines`。 |
+| `approvalMode` | `auto` | `auto` 允许已同意的非破坏性写入免询问；删除 release、tag、secret、变量、ruleset、分支保护或取消运行仍会询问。`ask` 每次询问；`off` 交由宿主决定。 |
 | `allowedActions` | 全部 | 允许执行的写操作；其余一律拒绝，且每个都会询问确认。 |
 | `autoApprove` | 空 | 非交互运行（`DSH_GITHUB_OPS_UNATTENDED=1`）可免除询问的操作；破坏性操作永远不会被自动批准。 |
 | `reviewJobTimeoutMs` | `120000` | 后台评审任务的最长运行时间。 |

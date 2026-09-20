@@ -2,27 +2,17 @@
 
 Notable changes to `@goodandready/dsh-github-ops`.
 
-## 0.1.1
+## 0.1.1 — released
 
-- Retries and rate-limit respect: a read (GET/HEAD) is retried on a network failure, a
-  timeout or a 5xx, and a 429 is honoured through `Retry-After` or the rate-limit reset.
-  A write is never retried automatically. `maxRetries` in settings.
-- A call may omit the repository inside a checkout: it is taken from the origin remote.
-  `owner/repo#12` and a bare `12` are understood.
-- Review findings are configuration now: glob paths, severities, the large-diff threshold
-  and whether tests are required (`reviewRulesJson`).
-- Tool results render as cards (links, branch pairs, verdicts, failing steps) instead of a
-  JSON blob.
-- Writes pass through the approval contour: every write maps to a named action, an action
-  outside `allowedActions` is denied, destructive actions always ask, and only
-  `DSH_GITHUB_OPS_UNATTENDED=1` with `autoApprove` can skip a prompt.
-- Background reviews: `gh_review_job` starts one and answers immediately;
-  `gh_review_job_status` reads it.
-- Slash commands: `/pr create [title]`, `/review [number]`, `/issue new|list|show`, `/gh`.
-  A command never writes itself — it hands the model an instruction, so the write still goes
-  through the approval gate.
-- Access can come from the DSH credential, the environment variable or the `gh` CLI session
-  (`tokenSource`), which is why a machine with `gh auth login` needs no extra configuration.
+- `approvalMode` with "auto" as the default: an agreed, non-destructive write goes through
+  without a prompt, so a session whose host has approval prompts disabled is not blocked by a
+  question it cannot answer. Deleting a release, a tag, a secret, a variable, a ruleset,
+  cancelling a run or removing branch protection still asks, and where prompts are
+  unavailable that means it is refused — never automatic. "ask" prompts on every write;
+  "off" leaves the decision entirely to the host approval contour.
+- `allowedActions` is the fence in every mode: an action outside it is denied outright.
+- The setting is editable in the card (a three-option select) and documented in all three
+  READMEs.
 
 ## 0.1.0 — first release
 

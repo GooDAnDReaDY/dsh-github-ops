@@ -1,4 +1,39 @@
-# dsh-github-ops
+# 📦 @goodandready/dsh-github-ops
+
+<div align="center">
+
+<h3>Комплексные операции GitHub, релизы, CI-запуски, секреты и санитизированные зеркала для DeepSeek Harness</h3>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@goodandready/dsh-github-ops"><img src="https://img.shields.io/npm/v/@goodandready/dsh-github-ops.svg?style=for-the-badge&color=6366f1&labelColor=1e1b4b" alt="npm version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/GooDAnDReaDY/dsh-github-ops.svg?style=for-the-badge&color=10b981&labelColor=064e3b" alt="license"></a>
+  <a href="https://github.com/topics/dsh-plugin"><img src="https://img.shields.io/badge/DSH-Plugin-8b5cf6.svg?style=for-the-badge&labelColor=2e1065" alt="DSH Plugin"></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node-20%2B-f59e0b.svg?style=for-the-badge&labelColor=451a03" alt="Node version"></a>
+</p>
+
+<p align="center">
+  <a href="https://goodandready.app/"><img src="https://img.shields.io/badge/Все_проекты_автора-goodandready.app-ff4500.svg?style=for-the-badge&logo=rocket&logoColor=white&labelColor=1a1a2e" alt="Все проекты автора"></a>
+</p>
+
+<p align="center">
+  <a href="README.md"><b>🇬🇧 English</b></a> •
+  <a href="README.zh.md"><b>🇨🇳 中文说明</b></a> •
+  <a href="README.ru.md"><b>🇷🇺 Русский</b></a>
+</p>
+
+<table align="center">
+  <tr>
+    <td align="center">
+      ⭐ <strong>Если вам нравится этот плагин, поставьте ему Star на GitHub</strong> — это покажет мне, что плагин полезен, и добавит мотивации продолжать его развитие.
+      <br><br>
+      🐛 <strong>Если вы нашли ошибку или хотите предложить новую функцию</strong>, откройте issue на GitHub на любом удобном языке — я регулярно просматриваю предложения и реализую полезные идеи в будущих версиях плагина.
+    </td>
+  </tr>
+</table>
+
+</div>
+
+---
 
 Операции с GitHub для [DeepSeek Harness](https://github.com/topics/dsh-plugin): релизы,
 теги, защищённый универсальный доступ к API, запуски workflow, секреты и публикация
@@ -31,6 +66,7 @@ dsh plugin --profile web add @goodandready/dsh-github-ops
 | `timeoutMs` | `30000` | Таймаут одного запроса. |
 | `maxRetries` | `2` | Повторы для неудачного чтения (запись не повторяется). |
 | `reviewRulesJson` | пусто | Переопределение правил ревью в JSON: `sensitivePaths`, `sensitiveSeverity`, `attentionPaths`, `migrationPaths`, `testsRequired`, `sourcePatterns`, `testPatterns`, `largeDiffLines`. |
+| `approvalMode` | `auto` | `auto` — согласованные неразрушительные записи проходят без вопроса; удаление релиза, тега, секрета, переменной, ruleset, защиты веток и отмена запуска спрашивают всегда. `ask` — спрашивать на каждую запись; `off` — решение целиком за штатным гейтом развёртывания. |
 | `allowedActions` | все | Разрешённые записи; всё остальное отклоняется, и каждая всё равно спрашивает подтверждение. |
 | `autoApprove` | пусто | Действия, которые неавтономный прогон (`DSH_GITHUB_OPS_UNATTENDED=1`) может выполнить без вопроса; разрушительные не автоутверждаются никогда. |
 | `reviewJobTimeoutMs` | `120000` | Сколько может работать фоновая задача ревью. |
