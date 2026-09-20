@@ -1,0 +1,3 @@
+- insert:
+    - id: dsh-github-ops
+      name: '@goodandready/dsh-github-ops'
