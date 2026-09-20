@@ -59,27 +59,70 @@ gists). Reads are free. `POST`/`PATCH`/`PUT`/`DELETE` require `confirm: true`. D
 repository, transferring a repository or deleting an organization is refused outright —
 a single confirmation cannot make those safe.
 
+### Issues and pull requests
+
+| Tool | What it does |
+|---|---|
+| `gh_issue` | List or read issues (`action: list\|get\|comments`); pull requests come back as `kind: "pr"`. |
+| `issue_open`, `issue_comment`, `issue_close` | Create an issue, comment on an issue or PR, close it (optionally with a state reason). |
+| `gh_search` | Search issues and PRs with GitHub search syntax (separate quota). |
+| `pr_create`, `pr_update` | Open a pull request from a head branch; edit title, body, state or base. |
+| `pr_merge` | Merge a PR (merge/squash/rebase), optionally deleting the head branch. |
+| `gh_review` | One review pack: metadata, areas, capped diff, comments, CI rollup and deterministic findings (secrets, migrations, CI config, source without tests, large diff). |
+| `review_post` | Publish a review as one summary comment, or as line-anchored inline comments. |
+| `gh_checks` | Check runs, legacy statuses and one rollup verdict for a commit. |
+| `ci_run` | One-shot review of a PR with a rule-based verdict. |
+
+### Mirror publication
+
+| Tool | What it does |
+|---|---|
+| `gh_mirror_check` | Read-only plan: which product files would reach the mirror, how many stay behind, and why a publication must be refused. |
+| `gh_mirror_publish` | Publish the sanitized tree: one commit on top of the mirror branch, fast-forward, **never a force**. `dryRun: true` previews; writing needs `confirm: true`. |
+
+The allowlist is the package manifest's own `files` plus `.gitignore`, `LICENSE`,
+README trio, `CHANGELOG.md` and `cordis.patch.yml`. `docs/**` and agent instructions are
+forbidden even when a manifest lists them; shipped tooling such as `scripts/**` is
+published because it is part of the package.
+
+### Workflow runs
+
+| Tool | What it does |
+|---|---|
+| `gh_run_list`, `gh_run_view` | List runs (branch, workflow, status filters) and read one run. |
+| `gh_run_jobs` | Jobs with their steps, and the steps that failed — usually enough to diagnose a failure. |
+| `gh_run_rerun`, `gh_run_cancel` | Re-run all or only failed jobs; cancel an in-progress run (needs `confirm: true`). |
+| `gh_run_logs` | Returns the logs archive URL: GitHub answers with a redirect to a zip, which is not pulled into the conversation. |
+
+### Repository settings
+
+| Tool | What it does |
+|---|---|
+| `gh_variable_list/set/delete` | Actions variables, repository-wide or per environment. |
+| `gh_secret_list/set/delete` | Actions secrets. Setting one uses sealed-box encryption through the optional `tweetnacl` package; without it the tool says what to install instead of writing a broken value. |
+| `gh_ruleset_list/view/apply/delete` | Repository rulesets: read, create, update, delete. |
+| `gh_branch_protection_get/set/delete` | Classic branch protection: required reviews, status checks, admin enforcement, force-push and deletion flags. |
+
 ## Safety
 
 - The token lives in the DSH credential service; settings hold only its name.
-- Read operations never change state; mutations are confirmed explicitly.
+- Read operations never change state; mutations are confirmed explicitly, and deleting a
+  repository, transferring one or deleting an organization is refused outright.
 - The client never logs the token, and every failure is reported as a value
   (`ok: false` with `status`, `code`, `rateLimit`) instead of an exception.
+- Findings from `gh_review` are deterministic rules: they point at what needs attention
+  and are never presented as a verdict on correctness.
 
 ## Roadmap
 
-Release blockers, in order:
+Everything planned for the first release is implemented. What remains is the release
+process itself:
 
-1. **Parity** — `pr_create`, `pr_update`, `pr_merge`, `gh_review`, `review_post`,
-   `gh_issue`, `issue_open`, `issue_comment`, `issue_close`, `gh_search`,
-   `gh_repo_search`, `gh_repo`, `gh_file`, `gh_checks`, `ci_run`.
-2. **Mirror** — `gh_mirror_check`, `gh_mirror_publish`: sanitized product tree
-   (allowlist from `package.json → files`), one commit on top of the mirror branch,
-   fast-forward, never a force.
-3. **Workflow runs** — `gh_run_list/view/rerun/cancel/logs`.
-4. **Repository settings** — secrets, variables, rulesets, branch protection,
-   `gh_repo_create`, `gh_repo_edit`.
-5. Settings card in the plugins page, locales `en`/`zh`, design contract.
+1. Preflight (`dsh-plugin-preflight`) and the package check.
+2. Verification of the exact `.tgz` on the isolated DSH test server.
+3. Acceptance of the same candidate on production.
+4. Translation notes for `dsh-russian-lang`.
+5. Public release (npm + GitHub) after an explicit go-ahead.
 
 ## Development
 
