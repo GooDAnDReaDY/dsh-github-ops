@@ -106,3 +106,29 @@ test('editRepo re-reads the repository when only topics change', async () => {
   assert.equal(updated.fullName, 'o/r')
   assert.ok(!client.calls.some((c) => c.method === 'PATCH'), 'no empty patch is sent')
 })
+
+test('editRepo reports the topics returned by the topics endpoint', async () => {
+  // The PATCH response can still carry the previous topics; the only authoritative list
+  // is the response of the topics call. Found by the live smoke run: topics came back empty.
+  const client = {
+    calls: [],
+    patch: async (path, body) => { client.calls.push({ method: 'PATCH', path, body }); return { data: { full_name: 'o/r', topics: ['old'] } } },
+    put: async (path, body) => { client.calls.push({ method: 'PUT', path, body }); return { data: { names: ['smoke-test', 'dsh'] } } },
+    get: async (path) => { client.calls.push({ method: 'GET', path }); return { data: { full_name: 'o/r', topics: [] } } },
+  }
+  const updated = await editRepo(client, { owner: 'o', repo: 'r', description: 'x', topics: ['smoke-test', 'dsh'] })
+  assert.deepEqual(updated.topics, ['smoke-test', 'dsh'])
+  assert.equal(client.calls.filter((c) => c.method === 'PUT').length, 1)
+})
+
+test('editRepo with topics only still reads the repository once', async () => {
+  const client = {
+    calls: [],
+    put: async (path, body) => { client.calls.push({ method: 'PUT', path, body }); return { data: { names: ['a'] } } },
+    get: async (path) => { client.calls.push({ method: 'GET', path }); return { data: { full_name: 'o/r', topics: [] } } },
+    patch: async () => { throw new Error('no patch expected') },
+  }
+  const updated = await editRepo(client, { owner: 'o', repo: 'r', topics: ['a'] })
+  assert.deepEqual(updated.topics, ['a'])
+  assert.equal(updated.fullName, 'o/r')
+})
