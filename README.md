@@ -29,6 +29,11 @@ Requires a GitHub token in the DSH credential service. Store the token under a n
 | `defaultRepository` | *(empty)* | `owner/repo` used by tools that omit `repository`. |
 | `baseUrl` | `https://api.github.com` | API base; change it for GitHub Enterprise. |
 | `timeoutMs` | `30000` | Per-request timeout. |
+| `maxRetries` | `2` | Retries for a failed read (never for a write). |
+| `reviewRulesJson` | *(empty)* | Review-rule overrides as JSON: `sensitivePaths`, `sensitiveSeverity`, `attentionPaths`, `migrationPaths`, `testsRequired`, `sourcePatterns`, `testPatterns`, `largeDiffLines`. |
+| `allowedActions` | *(all)* | Write actions the plugin may perform; anything else is denied. Each one still asks. |
+| `autoApprove` | *(empty)* | Actions an unattended run (`DSH_GITHUB_OPS_UNATTENDED=1`) may perform without asking. Destructive actions are never auto-approved. |
+| `reviewJobTimeoutMs` | `120000` | How long a background review job may run. |
 
 ## Tools
 
@@ -103,6 +108,24 @@ published because it is part of the package.
 | `gh_secret_list/set/delete` | Actions secrets. Setting one uses sealed-box encryption through the optional `tweetnacl` package; without it the tool says what to install instead of writing a broken value. |
 | `gh_ruleset_list/view/apply/delete` | Repository rulesets: read, create, update, delete. |
 | `gh_branch_protection_get/set/delete` | Classic branch protection: required reviews, status checks, admin enforcement, force-push and deletion flags. |
+
+## Background reviews and commands
+
+`gh_review_job` starts a review and returns a job id immediately; `gh_review_job_status`
+reports it. With a host job registry the work is visible and cancellable in the UI; without
+one it runs inside the plugin.
+
+Slash commands are the fast path for a human:
+
+| Command | What it does |
+|---|---|
+| `/pr create [title]` | Reads the current branch and origin, then instructs the model to call `pr_create`. |
+| `/review [number]` | Reviews a pull request (or the one for the current branch). |
+| `/issue new <title>` \| `/issue list` \| `/issue show <number>` | Opens, lists or reads issues. |
+| `/gh [group\|tool]` | Points at the tools for releases, tags, mirror, runs, secrets, variables, rulesets or branch protection. |
+
+A command never writes to GitHub itself: it hands the model an instruction, so the write
+still passes through the approval gate.
 
 ## Safety
 
