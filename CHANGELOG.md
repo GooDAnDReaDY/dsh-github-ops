@@ -2,6 +2,37 @@
 
 Notable changes to `@goodandready/dsh-github-ops`.
 
+## 0.2.1
+
+Two things: the Source Control tab learned to write, and a class of defect that silently killed
+tool results is closed for good.
+
+### The tab can write now
+
+- a commit bar: message, `amend`, Commit, Commit & push, and a button that pushes when the branch
+  is ahead and syncs (rebase pull with autostash, then push) when it is behind;
+- per-file stage and unstage, and discard behind a two-second-click confirmation;
+- branches: create from the current one, switch, delete and push; stashes: save with a message,
+  apply, pop and drop — the destructive ones behind the same confirmation;
+- an unfinished merge, rebase, cherry-pick or revert shows its own bar with continue and abort;
+- every write is a named action: the host builds validated argv (`lib/scm-write.js`) and never a
+  shell string, refuses the destructive ones without an explicit confirmation, and reports which
+  step failed and what git said.
+
+### Every tool result survives JSON without loss
+
+- a live call to `gh_repo_tree` failed with "value is not lossless JSON" because a directory entry
+  in a git tree has no `size`, and the result carried `size: undefined`; the harness refuses the
+  whole call for one value it cannot serialise;
+- `lib/lossless.js` now decides what a result may contain (dropping `undefined`, replacing `NaN`
+  and the infinities with `null`, converting `Date`, `Map`, `Set`, typed arrays, `Buffer` and
+  `BigInt`, naming a cycle instead of following it, dropping functions and symbols), and the tool
+  wrapper applies it to every result, success and failure alike, so no single tool has to remember
+  the rule;
+- `gh_repo_tree` no longer invents the field at all: a directory carries no `size` key;
+- the contract is written into `docs/design/DESIGN.md`, section 5.
+
+
 ## 0.2.0
 
 The development wave: reliability, reports, writing without a checkout, and the user surfaces.
