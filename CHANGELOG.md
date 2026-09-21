@@ -2,6 +2,43 @@
 
 Notable changes to `@goodandready/dsh-github-ops`.
 
+## 0.2.0
+
+The development wave: reliability, reports, writing without a checkout, and the user surfaces.
+
+### Reliability and reach
+- a short TTL read cache (`cacheTtlMs`) so a composed report does not spend the rate limit
+  twice; writes always go to the network and clear the cache;
+- the turn's cancellation reaches the request in flight, and a cancelled call says so instead
+  of pretending to be a timeout; reads retry on a network failure, a timeout or a 5xx, and a
+  429 is honoured through `Retry-After` or the rate-limit reset;
+- every list is cut locally as well, because GitHub sometimes ignores the page size;
+- failures say what to do next (401, 403, 404, 409, 422, timeouts, a broken `/etc/hosts`);
+- `gh_help` lists every tool, grouped by area, built from the registrations;
+- a short paragraph in the system prompt explains how to use them (`guidance`, `guidanceText`).
+
+### Reports
+- `gh_repo_report`, `gh_weekly_digest`, `gh_notifications`, `gh_repo_health`, `gh_compare`,
+  `gh_trending`, `gh_contributors`, `gh_user_repos`, `gh_commits`.
+
+### Writing without a checkout, and signing in
+- `gh_repo_tree`, `gh_push_files` (blobs, tree, commit, ref — `force` never implied),
+  `gh_upload_project`, `gh_delete_file`, `gh_delete_branch`;
+- `gh_auth_login` / `gh_auth_finish` / `gh_auth_status` / `gh_auth_logout`: GitHub device flow,
+  stored in the plugin's own file with mode 0600 and never returned in a result. The access
+  chain is now credentials → environment → this plugin's sign-in → `gh` CLI.
+
+### User surfaces
+- the access status in the plugin card (source, account, scopes, rate limit, cache) from a
+  local-only host route;
+- a **Source Control** tab in the session view ring: repository header, change groups, diff
+  viewer, merge/rebase state, branches, tags and stashes — read-only for now;
+- a **GitHub panel** in the sidebar (better-sidebar and the built-in right sidebar): repository
+  switcher, Code tree with file preview, Issues, Pull requests, Actions and an inbox;
+- a pull request bar above the composer that hands an instruction to the composer instead of
+  writing by itself, and opt-in remembering of the repository behind a github.com link;
+- `docs/design/DESIGN.md` describes all of it, with the states and the locked decisions.
+
 ## 0.1.2
 
 - Removed the write-approval contour the plugin never should have had: no `tools/pre-execute`

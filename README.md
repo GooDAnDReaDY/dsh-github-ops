@@ -67,6 +67,14 @@ Requires a GitHub token in the DSH credential service. Store the token under a n
 | `maxRetries` | `2` | Retries for a failed read (never for a write). |
 | `reviewRulesJson` | *(empty)* | Review-rule overrides as JSON: `sensitivePaths`, `sensitiveSeverity`, `attentionPaths`, `migrationPaths`, `testsRequired`, `sourcePatterns`, `testPatterns`, `largeDiffLines`. |
 | `reviewJobTimeoutMs` | `120000` | How long a background review job may run. |
+| `cacheTtlMs` | `60000` | How long a read is served from the in-memory cache. Writes always go to the network and clear it. Set `0` to switch the cache off. |
+| `interceptLinks` | `false` | Let a `github.com` link clicked in the conversation record which repository the Source Control tab and the panel should follow. The link always opens in the browser either way. |
+| `guidance` | `true` | Add a short paragraph about this plugin to the system prompt. |
+| `guidanceText` | *(empty)* | Replace that paragraph with your own text. |
+| `oauthClientId` | the public `gh` CLI application | OAuth application used by `gh_auth_login`. |
+| `oauthScope` | `repo workflow gist read:org` | Scope requested by `gh_auth_login`. |
+| `oauthClientSecretRef` | *(empty)* | Optional credential name holding the OAuth client secret. |
+| `accessFile` | `$DSH_HOME/github-ops-auth.json` | Where `gh_auth_login` stores the sign-in (written `0600`). |
 
 ## Tools
 
@@ -142,6 +150,42 @@ published because it is part of the package.
 | `gh_ruleset_list/view/apply/delete` | Repository rulesets: read, create, update, delete. |
 | `gh_branch_protection_get/set/delete` | Classic branch protection: required reviews, status checks, admin enforcement, force-push and deletion flags. |
 
+### Reports
+
+| Tool | What it does |
+|---|---|
+| `gh_repo_report` | Everything about a repository in one call: overview, latest release, open issues, recent commits, top contributors. A failing part degrades that part instead of failing the report. |
+| `gh_weekly_digest` | What happened inside a window: releases, new issues, merged or closed pull requests, commits. Pull requests are reported separately, not as “new issues”. |
+| `gh_notifications` | The attention queue for the account — mentions, review requests, assignments — grouped by reason. |
+| `gh_repo_health` | A transparent maintenance score: five weighted dimensions, each with its evidence, plus the risks found and concrete next actions. A heuristic over public signals, not a security audit. |
+| `gh_compare` | Two repositories side by side with numeric deltas for stars, forks and open issues. |
+| `gh_contributors` | Top contributors of a repository by commit count. |
+| `gh_user_repos` | A user's or organization's repositories sorted by stars. |
+| `gh_trending` | Recently created repositories by stars, optionally filtered by language (uses the search quota). |
+| `gh_commits` | Recent commits, optionally since a timestamp and on a specific branch. |
+| `gh_help` | Every tool of this plugin, grouped by area, built from the registrations so it cannot go stale. |
+
+### Files and branches
+
+These publish content without a local checkout: the client builds a commit the way git does.
+
+| Tool | What it does |
+|---|---|
+| `gh_repo_tree` | The file tree at a ref, recursively by default, with the truncation flag — far cheaper than walking directories. |
+| `gh_push_files` | Commit files to a branch: blobs, a tree on top of the branch tree, a commit, then the ref moves. Creates the branch when it does not exist. `force` is never implied and needs `confirm: true`. |
+| `gh_upload_project` | Create a repository, publish files into it and optionally open a pull request — one call. An existing repository is used as is instead of failing. |
+| `gh_delete_file` | Delete one file (the blob sha is resolved first). Requires `confirm: true`. |
+| `gh_delete_branch` | Delete a branch. Requires `confirm: true`. |
+
+### Account and sign-in
+
+| Tool | What it does |
+|---|---|
+| `gh_auth_login` | Start a GitHub device-flow sign-in: returns a short code and a URL for the human. |
+| `gh_auth_finish` | Collect a started sign-in. The granted value is written to this plugin's own file with mode `0600` and is never returned in a result. |
+| `gh_auth_status` | Where the access comes from (credential, environment, this plugin's sign-in, `gh` CLI), the account, the reported scopes and the remaining rate limit. |
+| `gh_auth_logout` | Forget the sign-in stored by this plugin; other sources are untouched. Requires `confirm: true`. |
+
 ## Background reviews and commands
 
 `gh_review_job` starts a review and returns a job id immediately; `gh_review_job_status`
@@ -159,6 +203,42 @@ Slash commands are the fast path for a human:
 
 A command never writes to GitHub itself: it hands the model an instruction, so the write
 still passes through the approval gate.
+
+## Reliability
+
+- Reads are cached for `cacheTtlMs`, so a composed report or a repeated listing does not
+  spend the rate limit twice. Writes always reach the network and clear the cache.
+- A cancelled turn cancels the request in flight, and the failure says so instead of
+  pretending to be a timeout.
+- Reads retry on a network failure, a timeout or a server error. Writes never retry: a
+  repeated write is a decision, not an accident.
+- Every list is also cut locally, because the API sometimes ignores the requested page size.
+- A failure says what to do next: a missing credential, a missing scope, an object that is
+  invisible (a draft release is only reachable by id), a conflict to re-read, a payload to
+  fix, a timeout to retry — and a broken `/etc/hosts` entry when the network is unreachable.
+
+## User interface
+
+The plugin contributes four small surfaces, all read-only except the two documented
+confirmations:
+
+- **Access status in the plugin card.** Source, account, scopes, remaining rate limit and
+  cache state. It is loaded from a local-only host route, so the access value never enters
+  the conversation. States: loading, not configured (with guidance), ok, error.
+- **Source Control tab** in the session view ring: repository path and branch with
+  ahead/behind, change groups (conflicts, staged, changes, untracked), a diff pane for the
+  selected file, an in-progress merge/rebase banner, and branches, tags and stashes. Reading
+  only for now: the commit bar and the branch/stash actions are the next step.
+- **GitHub panel** in the sidebar — it registers in better-sidebar and in the built-in right
+  sidebar. Repository switcher with public search, a Code tree with a file preview, and
+  Issues, Pull requests, Actions and Inbox tabs.
+- **Pull request bar** above the composer. It appears when the branch has commits the
+  upstream does not, and its buttons put an instruction on the clipboard instead of writing:
+  the call still goes through the normal approval contour.
+
+A short paragraph about the plugin is added to the system prompt (`guidance`), and a
+`github.com` link clicked in the conversation can record which repository to follow
+(`interceptLinks`, off by default).
 
 ## Safety
 
@@ -192,6 +272,17 @@ npm test        # node --test, no harness and no network: fetch is injected
 Tests live next to the code they cover and never touch the network: the transport is a
 parameter, so failure modes (404, rate limit, timeout, non-JSON body, short pages) are
 exercised directly.
+
+## Visual verification
+
+The settings card, rendered by this release candidate on an isolated test server and captured
+from the real interface in both themes:
+
+![GitHub ops settings card, dark and light theme](media/visual-verification.png)
+
+What the picture shows: the plugin card with its title and description, the credential-name and
+access-source fields with their hints, and the access block the card loads from the host route.
+Both frames come from the same candidate and the same data.
 
 ## License
 
