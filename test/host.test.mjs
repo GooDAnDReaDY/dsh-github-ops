@@ -30,9 +30,10 @@ test('the renderer caps the text so a single call cannot flood the turn', () => 
   assert.match(source, /output truncated/)
 })
 
-test('tools report failures as values, never as thrown errors', () => {
-  assert.match(source, /return \{ ok: true, data: value \}/)
+test('tools report failures as values, never as thrown errors, and every value is lossless JSON', () => {
+  assert.match(source, /return \{ ok: true, data: lossless\(value\) \}/)
   assert.match(source, /const out = \{ ok: false, error: describeError\(err\) \}/)
+  assert.match(source, /return lossless\(out\)/, 'the error path is sanitised too')
 })
 
 test('a tool name taken by another plugin is skipped, never fatal', () => {
