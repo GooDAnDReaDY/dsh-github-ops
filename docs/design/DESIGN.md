@@ -122,7 +122,7 @@ loopback/тот же origin, fail-closed). Токен в ответ не поп�
 разъятия. Состояния: скрыта (нет расхождения), видима (есть что предложить), `busy`
 (инструкция отправлена), `error` (не удалось прочитать git — строка объясняет причину).
 
-### 8.4 Вкладка Source Control (пункт 24) — **требует согласования**
+### 8.4 Вкладка Source Control (пункт 24) — сделано (чтение; запись — вторая фаза)
 
 Новая вкладка в `conversation.view` (так же, как вкладка Memory в `dsh-memory-meter`:
 `slots.inject('conversation.view')` + `slots.register({ name, id, order, label, locale })`),
@@ -137,7 +137,7 @@ loopback/тот же origin, fail-closed). Токен в ответ не поп�
 `ok`, `error` (git недоступен), `dirty` (подтверждение при отмене изменений),
 `conflict` (кнопки accept current / incoming / both).
 
-### 8.5 Панель GitHub во встроенном сайдбаре и better-sidebar (пункт 25) — **требует согласования**
+### 8.5 Панель GitHub во встроенном сайдбаре и better-sidebar (пункт 25) — сделано
 
 Одна панель, два хоста: сначала регистрация во **встроенном сайдбаре DSH**, при
 отсутствии — в **better-sidebar** (тот же приём, что в `dsh-live-canvas`:
