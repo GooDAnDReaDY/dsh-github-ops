@@ -1,6 +1,6 @@
 {
   "name": "@goodandready/dsh-github-ops",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "GitHub operations for DeepSeek Harness: releases, tags, a guarded generic API pass-through, workflow runs, secrets and sanitized mirror publication.",
   "license": "MIT",
   "type": "module",
@@ -32,7 +32,7 @@
     }
   },
   "scripts": {
-    "pretest": "for f in lib/index.js lib/github.js lib/tools/*.js; do node --check \"$f\" || exit 1; done",
+    "pretest": "for f in lib/*.js lib/tools/*.js; do node --check \"$f\" || exit 1; done",
     "test": "node --test test/*.test.mjs"
   },
   "peerDependencies": {
