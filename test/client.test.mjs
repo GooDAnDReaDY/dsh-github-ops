@@ -19,6 +19,7 @@ function makeFakeReact() {
       if (store[at] === undefined) store[at] = initial
       return [store[at], (next) => { store[at] = typeof next === 'function' ? next(store[at]) : next }]
     },
+    useCallback: (fn) => fn,
     useEffect: (fn) => {
       fn()
       index = 0 // the render cycle is over; the next render starts from the first hook
@@ -33,6 +34,8 @@ function loadClient() {
   const win = { __ModuleLoader__: { load: (mod) => { loaded = mod } } }
   const context = vm.createContext({
     window: win,
+    // the card checks the access status when it opens; a stub keeps the VM self-contained
+    fetch: async () => ({ ok: true, status: 200, json: async () => ({ configured: false, guidance: 'not configured' }) }),
     console,
     setTimeout,
     clearTimeout,
