@@ -7,6 +7,7 @@ import {
   validatePath,
   validateMessage,
   validateStashRef,
+  validateCwd,
   ACTIONS,
   OPERATION_VERBS,
 } from '../lib/scm-write.js'
@@ -113,4 +114,13 @@ test('a summary is always there, so the route can report what it ran', () => {
 
 test('sync is a rebase pull followed by a push, never a bare pull', () => {
   assert.deepEqual(buildAction('sync', {}).steps, [['pull', '--rebase', '--autostash'], ['push']])
+})
+
+test('the optional repository path is absolute, traversal-free and bounded', () => {
+  assert.equal(validateCwd(''), '')
+  assert.equal(validateCwd('   '), '')
+  assert.equal(validateCwd('/srv/repo'), '/srv/repo')
+  for (const bad of ['srv/repo', '../repo', '/srv/../etc', '/srv\u0000repo', '/' + 'a'.repeat(600)]) {
+    assert.throws(() => validateCwd(bad), /repository path/, `must refuse ${JSON.stringify(bad).slice(0, 30)}`)
+  }
 })

@@ -62,7 +62,7 @@ test('the source control route serves reads and gated writes, and both are trust
 
 test('the tab writes only through named actions, and the dangerous ones ask twice', () => {
   assert.match(client, /method: 'POST'/)
-  assert.match(client, /body: JSON\.stringify\(\{ action, args: args \|\| \{\} \}\)/)
+  assert.match(client, /body: JSON\.stringify\(repoPath \? \{ action, args: args \|\| \{\}, cwd: repoPath \} : \{ action, args: args \|\| \{\} \}\)/)
   assert.match(client, /const armed = \(key, action, args\)/, 'a destructive click arms first')
   for (const action of [
     'stage', 'unstage', 'discard', 'commit', 'push', 'sync',
