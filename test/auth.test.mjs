@@ -82,7 +82,32 @@ test('failures in a source are misses, not crashes', async () => {
 })
 
 test('the source order is the documented one', () => {
-  assert.deepEqual(ACCESS_SOURCES, ['credentials', 'env', 'gh'])
+  assert.deepEqual(ACCESS_SOURCES, ['credentials', 'env', 'file', 'gh'])
+})
+
+test("the plugin's own sign-in is consulted before the gh CLI session", async () => {
+  const order = []
+  const result = await resolveAccess({
+    credentials: { resolve: async () => { order.push('credentials'); return null } },
+    tokenEnv: 'GITHUB_TOKEN',
+    env: {},
+    runFile: async () => { order.push('file'); return 'from-file' },
+    runGh: async () => { order.push('gh'); return 'from-gh' },
+  })
+  assert.equal(result.source, 'file')
+  assert.equal(result.value, 'from-file')
+  assert.deepEqual(order, ['credentials', 'file'], 'the gh CLI is not asked once the file answers')
+})
+
+test('a stored sign-in that answers with nothing falls through to the gh CLI', async () => {
+  const result = await resolveAccess({
+    credentials: { resolve: async () => null },
+    tokenEnv: 'GITHUB_TOKEN',
+    env: {},
+    runFile: async () => '',
+    runGh: async () => 'from-gh',
+  })
+  assert.equal(result.source, 'gh')
 })
 
 test('whitespace from the gh CLI is trimmed and empty output is a miss', async () => {
