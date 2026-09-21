@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { isTrustedRequest, statusPayload, sendJson } from '../lib/status.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const hostSource = fs.readFileSync(path.join(here, '..', 'lib', 'index.js'), 'utf8')
+const routes = fs.readFileSync(path.join(here, '..', 'lib', 'routes.js'), 'utf8')
 const clientSource = fs.readFileSync(path.join(here, '..', 'lib', 'client.js'), 'utf8')
 
 const request = ({ address = '127.0.0.1', headers = {} } = {}) => ({
@@ -80,10 +80,10 @@ test('sendJson writes JSON, forbids caching and survives a dead client', () => {
 })
 
 test('the host registers the route behind the trust check, and the card reads it', () => {
-  assert.match(hostSource, /path: STATUS_PATH/)
-  assert.match(hostSource, /if \(!isTrustedRequest\(req\)\) return sendJson\(res, 403/)
-  assert.match(hostSource, /req\.method !== 'GET'/)
-  assert.match(hostSource, /statusPayload\(\{/)
+  assert.match(routes, /path: STATUS_PATH/)
+  assert.match(routes, /if \(!isTrustedRequest\(req\)\) return sendJson\(res, 403/)
+  assert.match(routes, /req\.method !== 'GET'/)
+  assert.match(routes, /statusPayload\(\{/)
   assert.match(clientSource, /const STATUS_PATH = '\/dsh-github-ops\/status'/)
   assert.match(clientSource, /fetch\(STATUS_PATH, \{ headers: \{ accept: 'application\/json' \} \}\)/)
   assert.match(clientSource, /className: 'gho-status'/)
