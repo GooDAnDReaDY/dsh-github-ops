@@ -64,6 +64,14 @@ dsh plugin --profile web add @goodandready/dsh-github-ops
 | `maxRetries` | `2` | 读取失败时的重试次数（写入不重试）。 |
 | `reviewRulesJson` | 空 | 以 JSON 覆盖评审规则：`sensitivePaths`、`sensitiveSeverity`、`attentionPaths`、`migrationPaths`、`testsRequired`、`sourcePatterns`、`testPatterns`、`largeDiffLines`。 |
 | `reviewJobTimeoutMs` | `120000` | 后台评审任务的最长运行时间。 |
+| `cacheTtlMs` | `60000` | 读取结果在内存缓存中的存活时间。写入始终访问网络并清空缓存；设为 `0` 关闭缓存。 |
+| `interceptLinks` | `false` | 允许会话中点击的 `github.com` 链接记录仓库，供 Source Control 标签页与侧边栏面板跟随。无论如何链接都会在浏览器中打开。 |
+| `guidance` | `true` | 在系统提示中加入一段关于本插件的简短说明。 |
+| `guidanceText` | *(空)* | 用自定义文本替换该说明。 |
+| `oauthClientId` | 公开的 `gh` CLI 应用 | `gh_auth_login` 使用的 OAuth 应用。 |
+| `oauthScope` | `repo workflow gist read:org` | `gh_auth_login` 请求的权限范围。 |
+| `oauthClientSecretRef` | *(空)* | 可选的、保存 OAuth 客户端密钥的凭据名称。 |
+| `accessFile` | `$DSH_HOME/github-ops-auth.json` | `gh_auth_login` 保存登录信息的位置（权限 `0600`）。 |
 
 ## 工具
 
@@ -143,6 +151,42 @@ dsh plugin --profile web add @goodandready/dsh-github-ops
 `settings.plugin.item`）：凭据名称、默认仓库、API 地址、请求超时。卡片会检查设置快照的
 **状态**，在设置服务不可用时明确说明，而不是画出一个看似可用的表单。
 
+### 报告
+
+| 工具 | 作用 |
+|---|---|
+| `gh_repo_report` | 一次调用给出仓库全貌：概览、最新 Release、打开的 Issue、近期提交、主要贡献者。某一部分失败只影响该部分，不会让整份报告失败。 |
+| `gh_weekly_digest` | 时间窗口内发生了什么：Release、新 Issue、已合并或关闭的 PR、提交。PR 单独统计，不会被当作“新 Issue”。 |
+| `gh_notifications` | 账号的关注队列——提及、评审请求、指派——按原因分组。 |
+| `gh_repo_health` | 透明的维护评分：五个加权维度，每项都带证据，另有风险与具体下一步。它是基于公开信号的启发式判断，不是安全审计。 |
+| `gh_compare` | 两个仓库并排比较，给出星标、Fork、打开 Issue 的数值差异。 |
+| `gh_contributors` | 按提交数排列的主要贡献者。 |
+| `gh_user_repos` | 用户或组织的仓库，按星标排序。 |
+| `gh_trending` | 近期创建的热门仓库，可按语言筛选（消耗搜索配额）。 |
+| `gh_commits` | 近期提交，可按时间与分支过滤。 |
+| `gh_help` | 本插件的全部工具，按领域分组，由注册表生成，不会过期。 |
+
+### 文件与分支
+
+无需本地检出即可发布内容：提交按 git 的方式组装。
+
+| 工具 | 作用 |
+|---|---|
+| `gh_repo_tree` | 指定 ref 的文件树，默认递归，并给出截断标志——比逐层遍历目录便宜得多。 |
+| `gh_push_files` | 向分支提交文件：blob → 基于分支树的 tree → commit → 移动 ref。分支不存在会创建。`force` 绝不隐含，且需要 `confirm: true`。 |
+| `gh_upload_project` | 创建仓库、发布文件并可选地打开 PR——一次调用。仓库已存在时直接使用，而不是失败。 |
+| `gh_delete_file` | 删除单个文件（先解析 blob sha）。需要 `confirm: true`。 |
+| `gh_delete_branch` | 删除分支。需要 `confirm: true`。 |
+
+### 账号与登录
+
+| 工具 | 作用 |
+|---|---|
+| `gh_auth_login` | 启动 GitHub device flow 登录：返回短码与供人工确认的网址。 |
+| `gh_auth_finish` | 收取已启动的登录。授权值写入本插件自己的文件（权限 `0600`），绝不会出现在工具结果里。 |
+| `gh_auth_status` | 访问来源（凭据、环境变量、本插件登录、`gh` CLI）、账号、已授权范围与剩余速率限制。 |
+| `gh_auth_logout` | 忘记本插件保存的登录；其他来源不受影响。需要 `confirm: true`。 |
+
 ## 后台评审与斜杠命令
 
 `gh_review_job` 立即返回任务 id，`gh_review_job_status` 读取结果。宿主提供任务注册表时，
@@ -151,6 +195,25 @@ dsh plugin --profile web add @goodandready/dsh-github-ops
 斜杠命令是人类的快捷入口：`/pr create [title]`、`/review [number]`、
 `/issue new <title> | list | show <number>`、`/gh [分组|工具]`。命令本身**不会**写入 GitHub，
 只是把指令交给模型，因此写入仍然经过审批关卡。
+
+## 可靠性
+
+- 读取结果按 `cacheTtlMs` 缓存，因此组合报告或重复列表不会重复消耗速率限制。写入始终访问网络并清空缓存。
+- 被取消的回合会取消在途请求，错误会如实说明，而不是伪装成超时。
+- 读取会在网络失败、超时或服务端错误时重试；写入从不重试——重复写入是决策，不是意外。
+- 每个列表同时会在本地截断，因为 API 有时会忽略请求的分页大小。
+- 失败会说明下一步该做什么：缺少凭据、权限范围不足、对象不可见（草稿 Release 只能按 id 访问）、需要重新读取的冲突、需要修正的载荷、可以重试的超时；网络不可达时还会指出 `/etc/hosts` 被写坏。
+
+## 界面
+
+插件提供四个小界面，除两处明确确认外均为只读：
+
+- **插件卡片中的访问状态。** 来源、账号、权限范围、剩余速率限制与缓存状态。数据来自仅本机可访问的宿主路由，访问值不会进入对话。状态：加载中、未配置（附指引）、正常、错误。
+- **Source Control 标签页**（会话视图环）：仓库路径与分支的 ahead/behind、变更分组（冲突、已暂存、已修改、未跟踪）、所选文件的差异面板、进行中的 merge/rebase 提示，以及分支、标签与 stash。目前只读：提交栏与分支/stash 操作是下一步。
+- **侧边栏 GitHub 面板**——同时注册到 better-sidebar 与内置右侧栏。带公开搜索的仓库切换器、带文件预览的 Code 树，以及 Issues、Pull requests、Actions、Inbox 四个标签。
+- **输入框上方的 Pull Request 条**。当分支存在上游没有的提交时出现；其按钮把指令复制到剪贴板而不是直接写入——调用仍走正常的审批链路。
+
+系统提示中会加入一段关于本插件的简短说明（`guidance`）；会话中点击的 `github.com` 链接可以记录要跟随的仓库（`interceptLinks`，默认关闭）。
 
 ## 安全边界
 
