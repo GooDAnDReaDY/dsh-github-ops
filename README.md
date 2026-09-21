@@ -193,6 +193,17 @@ Tests live next to the code they cover and never touch the network: the transpor
 parameter, so failure modes (404, rate limit, timeout, non-JSON body, short pages) are
 exercised directly.
 
+## Visual verification
+
+The settings card, rendered by this release candidate on an isolated test server and captured
+from the real interface in both themes:
+
+![GitHub ops settings card, dark and light theme](media/visual-verification.png)
+
+What the picture shows: the plugin card with its title and description, the credential-name and
+access-source fields with their hints, and the access block the card loads from the host route.
+Both frames come from the same candidate and the same data.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
