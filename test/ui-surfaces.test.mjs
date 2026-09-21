@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const client = fs.readFileSync(path.join(here, '..', 'lib', 'client.js'), 'utf8')
 const host = fs.readFileSync(path.join(here, '..', 'lib', 'index.js'), 'utf8')
+const routes = fs.readFileSync(path.join(here, '..', 'lib', 'routes.js'), 'utf8')
 
 test('the pull request bar sits in the composer bar seat and hides when there is nothing to suggest', () => {
   assert.match(client, /ctx\.slots\.inject\('conversation\.composer\.bar'/)
@@ -40,13 +41,13 @@ test('link watching is opt-in and only records what the human clicked', () => {
   assert.match(client, /if \(!linkState\.enabled\) return/, 'off unless the setting says otherwise')
   assert.match(client, /github\\\.com\\\/\(\[\^\/\]\+\)\\\/\(\[\^\/\?#\]\+\)/, 'only github.com links are read')
   assert.match(host, /interceptLinks: Schema\.boolean\(\)\.default\(false\)/, 'off by default in the settings')
-  assert.match(host, /interceptLinks: liveConfig\(\)\.interceptLinks === true/, 'and reported to the card through the status payload')
+  assert.match(routes, /interceptLinks: liveConfig\(\)\.interceptLinks === true/, 'and reported to the card through the status payload')
 })
 
 test('the source control route is read-only and trusted-caller only', () => {
-  const start = host.indexOf("path: SCM_PATH")
-  const end = host.indexOf('dsh-github-ops: scm route', start)
-  const route = host.slice(start, end)
+  const start = routes.indexOf("path: SCM_PATH")
+  const end = routes.indexOf('dsh-github-ops: scm route', start)
+  const route = routes.slice(start, end)
   assert.match(route, /if \(req\.method !== 'GET'\)/)
   assert.match(route, /if \(!isTrustedRequest\(req\)\)/)
   // the route only reads: none of the git write verbs may appear in it

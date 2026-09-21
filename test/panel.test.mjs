@@ -8,7 +8,7 @@ import { repoTreeView } from '../lib/tools/panel-data.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const client = fs.readFileSync(path.join(here, '..', 'lib', 'client.js'), 'utf8')
-const host = fs.readFileSync(path.join(here, '..', 'lib', 'index.js'), 'utf8')
+const routes = fs.readFileSync(path.join(here, '..', 'lib', 'routes.js'), 'utf8')
 
 function clientDouble(payload) {
   const calls = []
@@ -57,9 +57,9 @@ test('the tree view refuses a call without a repository', async () => {
 })
 
 test('the panel route is read-only, trusted-caller only, and switches on `what`', () => {
-  const start = host.indexOf('path: PANEL_PATH')
-  const end = host.indexOf('dsh-github-ops: panel route', start)
-  const route = host.slice(start, end)
+  const start = routes.indexOf('path: PANEL_PATH')
+  const end = routes.indexOf('dsh-github-ops: panel route', start)
+  const route = routes.slice(start, end)
   assert.match(route, /if \(req\.method !== 'GET'\)/)
   assert.match(route, /if \(!isTrustedRequest\(req\)\)/)
   assert.match(route, /what === 'repos'/)
