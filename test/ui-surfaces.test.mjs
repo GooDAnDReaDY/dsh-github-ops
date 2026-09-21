@@ -44,14 +44,37 @@ test('link watching is opt-in and only records what the human clicked', () => {
   assert.match(routes, /interceptLinks: liveConfig\(\)\.interceptLinks === true/, 'and reported to the card through the status payload')
 })
 
-test('the source control route is read-only and trusted-caller only', () => {
+test('the source control route serves reads and gated writes, and both are trusted-caller only', () => {
   const start = routes.indexOf("path: SCM_PATH")
   const end = routes.indexOf('dsh-github-ops: scm route', start)
   const route = routes.slice(start, end)
-  assert.match(route, /if \(req\.method !== 'GET'\)/)
+  assert.match(route, /req\.method !== 'GET' && req\.method !== 'POST'/, 'only GET and POST are served')
   assert.match(route, /if \(!isTrustedRequest\(req\)\)/)
-  // the route only reads: none of the git write verbs may appear in it
-  for (const verb of ["'add'", "'commit'", "'push'", "'checkout'", "'reset'", "'stash', 'drop'"]) {
-    assert.ok(!route.includes(verb), `the scm route must not run git ${verb}`)
+  // a write is a named action turned into argv by the validated builder — never a shell string
+  assert.match(route, /buildAction\(body\.action/)
+  assert.match(route, /for \(const argv of built\.steps\)/)
+  assert.match(route, /error: 'git refused the step'|ok: false, action: built\.action/)
+  for (const forbidden of ['exec(', 'execSync', 'spawn(', 'execFile(']) {
+    assert.ok(!route.includes(forbidden), `the scm route must not use ${forbidden}`)
   }
+  assert.match(route, /readJsonBody\(req\)/, 'the body is read bounded and parsed, not executed')
+})
+
+test('the tab writes only through named actions, and the dangerous ones ask twice', () => {
+  assert.match(client, /method: 'POST'/)
+  assert.match(client, /body: JSON\.stringify\(\{ action, args: args \|\| \{\} \}\)/)
+  assert.match(client, /const armed = \(key, action, args\)/, 'a destructive click arms first')
+  for (const action of [
+    'stage', 'unstage', 'discard', 'commit', 'push', 'sync',
+    'branchCreate', 'branchCheckout', 'branchDelete',
+    'stashPush', 'stashApply', 'stashPop', 'stashDrop', 'continue', 'abort',
+  ]) {
+    assert.ok(client.includes(`'${action}'`), `the panel should offer ${action}`)
+  }
+  assert.match(client, /runAction\('commit', \{ message, amend, push: true \}\)/, 'commit and push is one click')
+  assert.match(client, /armed\(discardKey, 'discard'/, 'discard asks twice')
+  assert.match(client, /armed\('abort'/, "aborting a merge asks twice")
+  assert.match(client, /runAction\(behind > 0 \? 'sync' : 'push'/, 'a branch behind the upstream syncs')
+  assert.match(client, /disabled: Boolean\(busy\)/, 'buttons are blocked while an action runs')
+  assert.match(client, /scmActionFailed/, 'a refused action is reported in the panel')
 })
