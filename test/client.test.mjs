@@ -61,9 +61,9 @@ test('browser half declares the module id that matches the package name', () => 
   assert.equal(mod.id, '@goodandready/dsh-github-ops')
 })
 
-test('browser half injects slots, locale and settingsScope', () => {
+test('browser half injects slots, locale and configForms', () => {
   const { exports } = loadClient()
-  assert.deepEqual([...exports.inject], ['slots', 'locale', 'settingsScope'])
+  assert.deepEqual([...exports.inject], ['slots', 'locale', 'configForms'])
   assert.equal(typeof exports.apply, 'function')
 })
 
@@ -106,7 +106,7 @@ test('the card checks the settings snapshot and exposes all four settings', () =
   const ctx = {
     locale: { register: () => {} },
     slots: { inject: (_n, f) => f(), register: (entry, component) => { received = { entry, component }; return () => {} } },
-    settingsScope: { bind: () => ({ subscribe: () => () => {}, getSnapshot: () => ({ status: 'ready', value: {} }), set: async () => {} }) },
+    configForms: { get: () => ({ subscribe: () => () => {}, getSnapshot: () => ({ status: 'ready', value: {} }), set: async () => {} }) },
   }
   exports.apply(ctx)
   assert.ok(received && typeof received.component === 'function')
@@ -140,7 +140,7 @@ test('the settings card renders even when the settings service is unavailable', 
     slots: { inject: (_n, f) => f(), register: (entry, component) => { received = { entry, component }; return () => {} } },
   }
   exports.apply(ctx)
-  // No settingsScope in this context: the card must say so instead of drawing a form
+  // No configForms in this context: the card must say so instead of drawing a form
   // that silently does nothing.
   received.component({ view: 'page', ctx, t: (k) => k })
   const tree = received.component({ view: 'page', ctx, t: (k) => k })
