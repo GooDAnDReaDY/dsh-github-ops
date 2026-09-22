@@ -2,6 +2,11 @@
 
 Notable changes to `@goodandready/dsh-github-ops`.
 
+## 0.2.2
+
+### Fixed
+- Settings no longer wait on the removed settingsScope service. The client uses configForms (#39).
+
 ## 0.2.1
 
 Two things: the Source Control tab learned to write, and a class of defect that silently killed
