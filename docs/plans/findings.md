@@ -18,3 +18,7 @@
      - `pr_review_threads`, `pr_thread_reply`, `pr_thread_resolve` -> `pull-requests` (matches `/^pr_/`)
 3. Locale and guidance:
    - English source, Chinese locale strings in client/guidance if exposed in UI, Russian comes from `dsh-russian-lang`.
+
+## Issue #38 Findings
+- GitHub client cache previously keyed on `access.value.length`. Because many GitHub tokens share standard lengths (e.g. 40 characters for PATs and OAuth tokens), token rotation to another account or a new token with the same length left the client pointing to the stale token.
+- Using a 16-character sha256 hex digest (`tokenFingerprint`) guarantees unique cache keys without exposing or logging the secret.
