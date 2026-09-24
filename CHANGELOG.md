@@ -2,6 +2,11 @@
 
 Notable changes to `@goodandready/dsh-github-ops`.
 
+## 0.2.4
+
+### Fixed
+- Fixed GitHub client cache holding onto stale credentials when rotated with a token of the exact same length: cache key now incorporates a non-reversible sha256 token fingerprint (#38).
+
 ## 0.2.3
 
 ### Added

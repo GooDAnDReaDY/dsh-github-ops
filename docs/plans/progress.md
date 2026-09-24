@@ -14,3 +14,9 @@ EOF
 - Implemented Phase 5: `pr_review_threads`, `pr_thread_reply`, `pr_thread_resolve` (Issue #45).
 - Added comprehensive unit tests: 243/243 tests pass (10 new tests).
 - Updated DESIGN.md, CHANGELOG.md, README-trio, bumped version to 0.2.3.
+
+## Issue #38 Progress
+- Implemented `tokenFingerprint`, `clientCacheKey`, and `createClientHolder` in `lib/auth.js`.
+- Integrated `createClientHolder` in `lib/index.js`.
+- Added 4 comprehensive unit tests in `test/auth.test.mjs` (247/247 tests passing).
+- Bumped version to 0.2.4, updated CHANGELOG.md and docs/design/DESIGN.md.
