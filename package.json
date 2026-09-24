@@ -1,6 +1,6 @@
 {
   "name": "@goodandready/dsh-github-ops",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "GitHub operations for DeepSeek Harness: releases, tags, a guarded generic API pass-through, workflow runs, secrets and sanitized mirror publication.",
   "license": "MIT",
   "type": "module",

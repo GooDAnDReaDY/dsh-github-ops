@@ -2,6 +2,15 @@
 
 Notable changes to `@goodandready/dsh-github-ops`.
 
+## 0.2.3
+
+### Added
+- Release assets management: `gh_release_asset_list`, `gh_release_asset_upload`, `gh_release_asset_delete` (#41).
+- Workflow dispatch: `gh_run_dispatch` triggering Actions workflow_dispatch events with inputs and confirm gate (#42).
+- CI log summary: `gh_run_log_summary` extracting compact failure context, stripping ANSI and redacting secrets (#43).
+- Release notes generation: `gh_release_notes_generate` generating changelogs from PRs and commits (#44).
+- PR review discussion threads: `pr_review_threads`, `pr_thread_reply`, `pr_thread_resolve` (#45).
+
 ## 0.2.2
 
 ### Fixed

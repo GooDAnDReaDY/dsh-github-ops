@@ -87,6 +87,10 @@ Requires a GitHub token in the DSH credential service. Store the token under a n
 | `gh_release_create` | Create a release for a tag, optionally on a specific commit. |
 | `gh_release_edit` | Edit title, notes, draft/prerelease, and **which release is latest**. |
 | `gh_release_delete` | Delete a release (requires `confirm: true`). |
+| `gh_release_asset_list` | List release assets with sizes and download counts (read-only). |
+| `gh_release_asset_upload` | Upload a file asset (.tgz, binary) to a release (requires `confirm: true`). |
+| `gh_release_asset_delete` | Delete a release asset by ID (requires `confirm: true`). |
+| `gh_release_notes_generate` | Generate release notes for a tag from merged PRs and commits (read-only). |
 
 `gh_release_edit` with `makeLatest: true` is the step that keeps the repository badge on
 the current version: creating older releases afterwards otherwise moves “Latest” back.
@@ -119,6 +123,9 @@ a single confirmation cannot make those safe.
 | `review_post` | Publish a review as one summary comment, or as line-anchored inline comments. |
 | `gh_checks` | Check runs, legacy statuses and one rollup verdict for a commit. |
 | `ci_run` | One-shot review of a PR with a rule-based verdict. |
+| `pr_review_threads` | List review discussion threads with comments and resolution status (read-only). |
+| `pr_thread_reply` | Reply to a review discussion thread by threadId or commentId (requires `confirm: true`). |
+| `pr_thread_resolve` | Mark a review discussion thread resolved or unresolved (requires `confirm: true`). |
 
 ### Mirror publication
 
@@ -140,6 +147,8 @@ published because it is part of the package.
 | `gh_run_jobs` | Jobs with their steps, and the steps that failed — usually enough to diagnose a failure. |
 | `gh_run_rerun`, `gh_run_cancel` | Re-run all or only failed jobs; cancel an in-progress run (needs `confirm: true`). |
 | `gh_run_logs` | Returns the logs archive URL: GitHub answers with a redirect to a zip, which is not pulled into the conversation. |
+| `gh_run_dispatch` | Trigger a workflow_dispatch event with inputs (requires `confirm: true`). |
+| `gh_run_log_summary` | Compact failed step log summary with stripped ANSI codes and masked secrets (read-only). |
 
 ### Repository settings
 
