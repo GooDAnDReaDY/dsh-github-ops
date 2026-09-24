@@ -8,6 +8,9 @@ import {
   rerunRun,
   cancelRun,
   getRunLogsUrl,
+  dispatchWorkflow,
+  cleanLogContent,
+  getJobLogSummary,
 } from '../lib/tools/actions.js'
 import {
   listVariables,
@@ -232,4 +235,62 @@ test('deleteBranchProtection requires a branch and deletes the protection object
   await deleteBranchProtection(client, { owner: 'o', repo: 'r', branch: 'main' })
   assert.equal(client.calls[0].path, '/repos/o/r/branches/main/protection')
   await assert.rejects(() => deleteBranchProtection(client, { owner: 'o', repo: 'r' }), /branch is required/)
+})
+
+test('dispatchWorkflow sends post to dispatches endpoint with formatted inputs', async () => {
+  const client = clientDouble([['/repos/o/r/actions/workflows/deploy.yml/dispatches', {}]])
+  const result = await dispatchWorkflow(client, {
+    owner: 'o', repo: 'r',
+    workflow: 'deploy.yml',
+    ref: 'main',
+    inputs: { target: 'staging', dryRun: true, count: 5 },
+  })
+  assert.equal(result.dispatched, true)
+  assert.equal(result.workflow, 'deploy.yml')
+  assert.equal(result.ref, 'main')
+  assert.deepEqual(result.inputs, { target: 'staging', dryRun: 'true', count: '5' })
+  assert.equal(client.calls[0].path, '/repos/o/r/actions/workflows/deploy.yml/dispatches')
+  assert.equal(client.calls[0].method, 'POST')
+  assert.equal(client.calls[0].body.ref, 'main')
+})
+
+test('cleanLogContent strips ANSI sequences, masks secrets, and limits lines', () => {
+  const raw = [
+    '\u001b[31mError:\u001b[0m build failed\r',
+    'Authorization: Bearer ghp_1234567890abcdef1234567890abcdef1234\r',
+    'Secret token: gho_0987654321fedcba0987654321fedcba0987',
+    'Finished with code 1',
+  ].join('\n')
+  const cleaned = cleanLogContent(raw, 2)
+  assert.equal(cleaned.length, 2)
+  assert.equal(cleaned[0], 'Secret token: [REDACTED_TOKEN]')
+  assert.equal(cleaned[1], 'Finished with code 1')
+})
+
+test('getJobLogSummary fetches job log, strips ANSI and returns failure context', async () => {
+  const rawLog = [
+    'Step 1: setup',
+    'Step 2: build',
+    '\u001b[31mError in step 3\u001b[0m',
+    'token: ghp_1111222233334444555566667777888899990000',
+  ].join('\n')
+  const client = {
+    ...clientDouble([
+      ['/repos/o/r/actions/runs/42/jobs', {
+        jobs: [
+          { id: 101, name: 'build-and-test', conclusion: 'failure', steps: [{ name: 'test', number: 3, conclusion: 'failure' }] }
+        ]
+      }],
+    ]),
+    getRaw: async (path) => {
+      assert.equal(path, '/repos/o/r/actions/jobs/101/logs')
+      return rawLog
+    },
+  }
+  const summary = await getJobLogSummary(client, { owner: 'o', repo: 'r', runId: 42 })
+  assert.equal(summary.jobId, 101)
+  assert.equal(summary.jobName, 'build-and-test')
+  assert.equal(summary.failedStep.name, 'test')
+  assert.ok(summary.lines.includes('Error in step 3'))
+  assert.ok(summary.lines.includes('token: [REDACTED_TOKEN]'))
 })

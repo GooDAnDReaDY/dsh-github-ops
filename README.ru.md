@@ -87,6 +87,10 @@ dsh plugin --profile web add @goodandready/dsh-github-ops
 | `gh_release_create` | Создание релиза для тега, при необходимости на конкретном коммите. |
 | `gh_release_edit` | Правка заголовка, заметок, draft/prerelease и **того, какой релиз считается latest**. |
 | `gh_release_delete` | Удаление релиза (нужно `confirm: true`). |
+| `gh_release_asset_list` | Список прикрепленных ассетов релиза с размерами и счетчиками скачиваний (только чтение). |
+| `gh_release_asset_upload` | Загрузка файла (.tgz, бинарника) в релиз (нужно `confirm: true`). |
+| `gh_release_asset_delete` | Удаление ассета по его ID (нужно `confirm: true`). |
+| `gh_release_notes_generate` | Генерация заметок к релизу по PR и коммитам (только чтение). |
 
 `gh_release_edit` с `makeLatest: true` — тот шаг, который держит бейдж репозитория на
 актуальной версии: если после этого создать релиз старой версии, «Latest» уедет назад.
@@ -119,6 +123,9 @@ dsh plugin --profile web add @goodandready/dsh-github-ops
 | `review_post` | Публикация обзора: сводный комментарий или построчные inline-замечания. |
 | `gh_checks` | Check-runs, статусы коммита и единый вердикт. |
 | `ci_run` | Одноразовый обзор PR с вердиктом по правилам. |
+| `pr_review_threads` | Список тредов обсуждений ревью со статусом разрешения (только чтение). |
+| `pr_thread_reply` | Ответ в тред обсуждения по threadId или commentId (нужно `confirm: true`). |
+| `pr_thread_resolve` | Пометка треда ревью разрешенным или повторное открытие (нужно `confirm: true`). |
 
 ### Публикация зеркала
 
@@ -140,6 +147,8 @@ Allowlist — состав `package.json → files` плюс `.gitignore`, `LICE
 | `gh_run_jobs` | Джобы с шагами и отдельно — упавшие шаги; обычно этого достаточно для диагноза. |
 | `gh_run_rerun`, `gh_run_cancel` | Перезапуск всех или только упавших джоб; отмена идущего запуска (нужно `confirm: true`). |
 | `gh_run_logs` | Возвращает адрес архива логов: GitHub отвечает редиректом на zip, который не тянется в разговор. |
+| `gh_run_dispatch` | Запуск workflow_dispatch с пользовательскими параметрами inputs (нужно `confirm: true`). |
+| `gh_run_log_summary` | Компактная выжимка логов упавшего шага с очисткой ANSI и маскированием токенов (только чтение). |
 
 ### Настройки репозитория
 
