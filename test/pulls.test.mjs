@@ -10,6 +10,9 @@ import {
   getChecks,
   ciRun,
   areasFor,
+  listReviewThreads,
+  replyReviewThread,
+  resolveReviewThread,
 } from '../lib/tools/pulls.js'
 
 function clientDouble(routes) {
@@ -192,4 +195,124 @@ test('ciRun turns a failed check rollup into needs-changes and a clean one into 
   ])
   const good = await ciRun(cleanClient, { owner: 'o', repo: 'r', number: 12 })
   assert.equal(good.verdict, 'success')
+})
+
+test('listReviewThreads queries GraphQL, normalizes threads and filters unresolved', async () => {
+  const threadsData = {
+    repository: {
+      pullRequest: {
+        reviewThreads: {
+          nodes: [
+            {
+              id: 'thread_1',
+              isResolved: false,
+              isOutdated: false,
+              path: 'lib/index.js',
+              line: 42,
+              diffSide: 'RIGHT',
+              resolvedBy: null,
+              comments: {
+                nodes: [
+                  {
+                    id: 'comment_node_1',
+                    databaseId: 1001,
+                    author: { login: 'reviewer' },
+                    body: 'Please check this line',
+                    createdAt: '2026-09-24T12:00:00Z',
+                    url: 'https://github.com/o/r/pull/12#comment-1',
+                  },
+                ],
+              },
+            },
+            {
+              id: 'thread_2',
+              isResolved: true,
+              isOutdated: true,
+              path: 'lib/old.js',
+              line: 10,
+              diffSide: 'LEFT',
+              resolvedBy: { login: 'octocat' },
+              comments: { nodes: [] },
+            },
+          ],
+        },
+      },
+    },
+  }
+  const client = {
+    graphql: async (query, vars) => {
+      assert.equal(vars.owner, 'o')
+      assert.equal(vars.repo, 'r')
+      assert.equal(vars.number, 12)
+      return threadsData
+    },
+  }
+
+  const all = await listReviewThreads(client, { owner: 'o', repo: 'r', number: 12 })
+  assert.equal(all.count, 2)
+  assert.equal(all.threads[0].id, 'thread_1')
+  assert.equal(all.threads[0].isResolved, false)
+  assert.equal(all.threads[0].comments[0].author, 'reviewer')
+
+  const unresolved = await listReviewThreads(client, { owner: 'o', repo: 'r', number: 12, unresolvedOnly: true })
+  assert.equal(unresolved.count, 1)
+  assert.equal(unresolved.threads[0].id, 'thread_1')
+})
+
+test('replyReviewThread replies via GraphQL threadId mutation or REST commentId', async () => {
+  let graphqlCalled = false
+  const client = {
+    ...clientDouble([
+      ['/repos/o/r/pulls/12/comments', { id: 2002, created_at: '2026-09-24T12:05:00Z' }],
+    ]),
+    graphql: async (query, vars) => {
+      graphqlCalled = true
+      assert.equal(vars.threadId, 'thread_1')
+      assert.equal(vars.body, 'Fixed now')
+      return {
+        addPullRequestReviewThreadReply: {
+          comment: { id: 'c_1', databaseId: 3003, body: 'Fixed now', createdAt: '2026-09-24T12:05:00Z' },
+        },
+      }
+    },
+  }
+
+  const res1 = await replyReviewThread(client, {
+    owner: 'o', repo: 'r', threadId: 'thread_1', body: 'Fixed now',
+  })
+  assert.equal(res1.replied, true)
+  assert.equal(res1.threadId, 'thread_1')
+  assert.equal(res1.commentId, 3003)
+  assert.equal(graphqlCalled, true)
+
+  const res2 = await replyReviewThread(client, {
+    owner: 'o', repo: 'r', number: 12, commentId: 1001, body: 'Acknowledged',
+  })
+  assert.equal(res2.replied, true)
+  assert.equal(res2.commentId, 2002)
+  assert.equal(client.calls[0].path, '/repos/o/r/pulls/12/comments')
+  assert.equal(client.calls[0].body.in_reply_to, 1001)
+})
+
+test('resolveReviewThread resolves and unresolves via GraphQL', async () => {
+  const calls = []
+  const client = {
+    graphql: async (query, vars) => {
+      calls.push({ query, vars })
+      const isResolve = query.includes('resolveReviewThread(')
+      return {
+        [isResolve ? 'resolveReviewThread' : 'unresolveReviewThread']: {
+          thread: { id: vars.threadId, isResolved: isResolve },
+        },
+      }
+    },
+  }
+
+  const resolved = await resolveReviewThread(client, { owner: 'o', repo: 'r', threadId: 'thread_1', resolve: true })
+  assert.equal(resolved.isResolved, true)
+  assert.ok(calls[0].query.includes('resolveReviewThread('))
+
+  const unresolved = await resolveReviewThread(client, { owner: 'o', repo: 'r', threadId: 'thread_1', resolve: false })
+  assert.equal(unresolved.isResolved, false)
+  assert.ok(calls[1].query.includes('unresolveReviewThread('))
 })

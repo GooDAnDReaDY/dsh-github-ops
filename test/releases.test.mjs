@@ -7,7 +7,14 @@ import {
   createRelease,
   editRelease,
   deleteRelease,
+  listReleaseAssets,
+  uploadReleaseAsset,
+  deleteReleaseAsset,
+  generateReleaseNotes,
 } from '../lib/tools/releases.js'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import os from 'node:os'
 
 /** Minimal client double: records calls, returns canned data per path. */
 function clientDouble(routes) {
@@ -143,4 +150,93 @@ test('a non-404 failure while resolving the id is not swallowed', async () => {
     get: async () => { const err = new Error('rate limited'); err.status = 403; throw err },
   }
   await assert.rejects(() => deleteRelease(client, { owner: 'o', repo: 'r', tag: 'v1' }), /rate limited/)
+})
+
+test('listReleaseAssets normalizes assets and respects limit', async () => {
+  const asset = {
+    id: 101,
+    name: 'bundle.zip',
+    label: 'Binaries',
+    state: 'uploaded',
+    size: 2048,
+    download_count: 5,
+    browser_download_url: 'https://github.com/o/r/releases/download/v0.1.0/bundle.zip',
+  }
+  const client = {
+    ...clientDouble([
+      ['/repos/o/r/releases/tags/', release],
+      ['/repos/o/r/releases/7/assets', [asset]],
+    ]),
+  }
+  const result = await listReleaseAssets(client, { owner: 'o', repo: 'r', tag: 'v0.1.0' })
+  assert.equal(result.count, 1)
+  assert.equal(result.assets[0].name, 'bundle.zip')
+  assert.equal(result.assets[0].size, 2048)
+  assert.equal(result.assets[0].downloads, 5)
+})
+
+test('uploadReleaseAsset uploads file buffer with proper headers and url', async () => {
+  const tmpFile = path.join(os.tmpdir(), 'dsh-test-asset.txt')
+  await fs.writeFile(tmpFile, 'hello world asset')
+  try {
+    let calledUrl = ''
+    let calledOpts = {}
+    const client = {
+      ...clientDouble([['/repos/o/r/releases/tags/', release]]),
+      baseUrl: 'https://api.github.com',
+      call: async (opts) => {
+        calledUrl = opts.url
+        calledOpts = opts
+        return {
+          data: {
+            id: 202,
+            name: 'test-asset.txt',
+            size: 17,
+            browser_download_url: 'https://x/test-asset.txt',
+          },
+        }
+      },
+    }
+    const uploaded = await uploadReleaseAsset(client, {
+      owner: 'o', repo: 'r', tag: 'v0.1.0',
+      filePath: tmpFile,
+      name: 'test-asset.txt',
+      label: 'Test Label',
+      contentType: 'text/plain',
+    })
+    assert.equal(uploaded.id, 202)
+    assert.equal(uploaded.name, 'test-asset.txt')
+    assert.ok(calledUrl.startsWith('https://uploads.github.com/repos/o/r/releases/7/assets'))
+    assert.equal(calledOpts.query.name, 'test-asset.txt')
+    assert.equal(calledOpts.query.label, 'Test Label')
+    assert.equal(calledOpts.headers['content-type'], 'text/plain')
+  } finally {
+    await fs.unlink(tmpFile).catch(() => {})
+  }
+})
+
+test('deleteReleaseAsset deletes asset by id', async () => {
+  const client = clientDouble([])
+  const result = await deleteReleaseAsset(client, { owner: 'o', repo: 'r', assetId: 202 })
+  assert.equal(result.deleted, true)
+  assert.equal(result.assetId, 202)
+  assert.equal(client.calls[0].path, '/repos/o/r/releases/assets/202')
+  assert.equal(client.calls[0].method, 'DELETE')
+})
+
+test('generateReleaseNotes requests release notes from GitHub API', async () => {
+  const client = clientDouble([
+    ['/repos/o/r/releases/generate-notes', { name: 'v1.0.0', body: '## Changes\n* feat: cool stuff' }],
+  ])
+  const result = await generateReleaseNotes(client, {
+    owner: 'o', repo: 'r',
+    tag: 'v1.0.0',
+    target: 'main',
+    previousTag: 'v0.9.0',
+  })
+  assert.equal(result.name, 'v1.0.0')
+  assert.equal(result.body, '## Changes\n* feat: cool stuff')
+  assert.equal(client.calls[0].path, '/repos/o/r/releases/generate-notes')
+  assert.equal(client.calls[0].body.tag_name, 'v1.0.0')
+  assert.equal(client.calls[0].body.target_commitish, 'main')
 })

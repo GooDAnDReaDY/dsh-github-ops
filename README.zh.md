@@ -84,6 +84,10 @@ dsh plugin --profile web add @goodandready/dsh-github-ops
 | `gh_release_create` | 为 tag 创建 release，可指定 commit。 |
 | `gh_release_edit` | 修改标题、说明、draft/prerelease，以及**哪个 release 是 latest**。 |
 | `gh_release_delete` | 删除 release（需要 `confirm: true`）。 |
+| `gh_release_asset_list` | 列出 release 关联的资源附件（大小与下载量）（只读）。 |
+| `gh_release_asset_upload` | 上传文件附件（.tgz、二进制等）至已有 release（需要 `confirm: true`）。 |
+| `gh_release_asset_delete` | 按资源 ID 删除 release 附件（需要 `confirm: true`）。 |
+| `gh_release_notes_generate` | 根据 PR 与提交自动生成 release notes（只读）。 |
 
 `gh_release_edit` 配合 `makeLatest: true` 是保持仓库徽章指向当前版本的关键一步：之后再创建
 旧版本的 release 会把 “Latest” 移回旧版本。
@@ -115,6 +119,9 @@ dsh plugin --profile web add @goodandready/dsh-github-ops
 | `review_post` | 发布评审：一条汇总评论，或按行内联评论。 |
 | `gh_checks` | 某个提交的 check runs、旧式状态与统一结论。 |
 | `ci_run` | 对 PR 做一次性评审并给出基于规则的结论。 |
+| `pr_review_threads` | 列出代码审查讨论主题及其评论与解决状态（只读）。 |
+| `pr_thread_reply` | 按 threadId 或 commentId 回复审查主题评论（需要 `confirm: true`）。 |
+| `pr_thread_resolve` | 标记代码审查主题为已解决或重新打开（需要 `confirm: true`）。 |
 
 ### 镜像发布
 
@@ -135,6 +142,8 @@ dsh plugin --profile web add @goodandready/dsh-github-ops
 | `gh_run_jobs` | 作业及其步骤，并单独列出失败的步骤——通常足以定位失败原因。 |
 | `gh_run_rerun`、`gh_run_cancel` | 重跑全部或仅失败作业；取消进行中的运行（需要 `confirm: true`）。 |
 | `gh_run_logs` | 返回日志压缩包地址：GitHub 以 302 指向 zip，不会把二进制拉进对话。 |
+| `gh_run_dispatch` | 触发附带输入参数的 workflow_dispatch 工作流（需要 `confirm: true`）。 |
+| `gh_run_log_summary` | 提取失败步骤的精简日志摘要（去除 ANSI 代码并脱敏令牌）（只读）。 |
 
 ### 仓库设置
 
