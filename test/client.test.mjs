@@ -79,9 +79,15 @@ test('apply registers the plugin-list seat first, then the row seat and the lega
     },
   }
   exports.apply(ctx)
-  assert.deepEqual(injected, ['plugins.item', 'plugins.row.config', 'settings.plugin.item'])
+  assert.deepEqual(injected, [
+    'plugins.item',
+    'plugins.row.config',
+    'settings.plugin.item',
+    'conversation.composer.bar',
+    'conversation.view',
+  ])
   const seats = registered.filter((r) => r.entry)
-  assert.equal(seats.length, 3)
+  assert.equal(seats.length, 5)
   assert.equal(seats[0].entry.name, 'plugins.item')
   assert.equal(seats[0].entry.id, 'dsh-github-ops', 'the list seat needs an id, not a key')
   assert.equal(seats[0].entry.order, 60)
@@ -109,9 +115,7 @@ test('the card checks the settings snapshot and exposes all four settings', () =
     configForms: { get: () => ({ subscribe: () => () => {}, getSnapshot: () => ({ status: 'ready', value: {} }), set: async () => {} }) },
   }
   exports.apply(ctx)
-  assert.ok(received && typeof received.component === 'function')
-
-  const tree = received.component({ view: 'page', ctx, t: (k) => k })
+  const tree = exports.GitHubOpsCard({ view: 'page', ctx, t: (k) => k })
   const flat = JSON.stringify(tree)
   for (const key of ['tokenEnv', 'defaultRepository', 'baseUrl', 'timeoutMs']) {
     assert.ok(flat.includes(`${key}`), `the form must expose ${key}`)
@@ -127,7 +131,7 @@ test('the summary view is a one-liner and installs a tagged style element', () =
     slots: { inject: (_n, f) => f(), register: (entry, component) => { received = { entry, component }; return () => {} } },
   }
   exports.apply(ctx)
-  const summary = received.component({ view: 'summary', ctx, t: (k) => k })
+  const summary = exports.GitHubOpsCard({ view: 'summary', ctx, t: (k) => k })
   assert.equal(summary.type, 'div')
   assert.equal(summary.props.className, 'gho-sub')
 })
@@ -142,8 +146,8 @@ test('the settings card renders even when the settings service is unavailable', 
   exports.apply(ctx)
   // No configForms in this context: the card must say so instead of drawing a form
   // that silently does nothing.
-  received.component({ view: 'page', ctx, t: (k) => k })
-  const tree = received.component({ view: 'page', ctx, t: (k) => k })
+  exports.GitHubOpsCard({ view: 'page', ctx, t: (k) => k })
+  const tree = exports.GitHubOpsCard({ view: 'page', ctx, t: (k) => k })
   const flat = JSON.stringify(tree)
   assert.ok(flat.includes('statusUnavailable'), 'an unavailable snapshot must be stated, not hidden')
 })
