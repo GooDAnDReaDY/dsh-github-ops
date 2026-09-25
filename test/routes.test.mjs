@@ -1,0 +1,90 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+
+import { registerRoutes, STATUS_PATH, SCM_PATH, PANEL_PATH } from '../lib/routes.js'
+
+function createHarness() {
+  const routes = new Map()
+  const wctx = {
+    webServer: {
+      register: (opts) => {
+        routes.set(opts.path, opts.handler)
+      },
+    },
+    effect: (fn) => fn(),
+  }
+  const ctx = {
+    inject: (deps, fn) => {
+      if (deps.includes('webServer')) fn(wctx)
+    },
+    logger: { warn: () => {} },
+  }
+  return { ctx, routes }
+}
+
+function mockResponse() {
+  let status = null
+  let headers = null
+  let body = ''
+  return {
+    writeHead: (s, h) => { status = s; headers = h },
+    end: (d) => { body = d || '' },
+    result: () => ({ status, headers, json: body ? JSON.parse(body) : null }),
+  }
+}
+
+test('registerRoutes binds dependencies and handles 405 on unsupported methods', async () => {
+  const { ctx, routes } = createHarness()
+  registerRoutes(ctx, {
+    resolveToken: async () => ({ value: 'test-token', source: 'test' }),
+    client: async () => ({
+      get: async (path) => {
+        if (path === '/user') return { data: { login: 'octocat', name: 'Mona' }, rateLimit: { limit: 5000, remaining: 4999 } }
+        return { data: {} }
+      },
+      lastScopes: () => 'repo, user',
+    }),
+    liveConfig: () => ({ interceptLinks: false }),
+    describeError: (e) => String(e),
+    makeGitRunner: () => () => ({ code: 0, stdout: 'main\n' }),
+    cacheStats: () => ({ size: 5, ttlMs: 60000 }),
+  })
+
+  assert.ok(routes.has(STATUS_PATH))
+  assert.ok(routes.has(SCM_PATH))
+  assert.ok(routes.has(PANEL_PATH))
+
+  const res = mockResponse()
+  await routes.get(STATUS_PATH)({ method: 'POST' }, res)
+  assert.equal(res.result().status, 405)
+})
+
+test('STATUS_PATH answers statusPayload for trusted request without throwing', async () => {
+  const { ctx, routes } = createHarness()
+  registerRoutes(ctx, {
+    resolveToken: async () => ({ value: 'test-token', source: 'test' }),
+    client: async () => ({
+      get: async () => ({ data: { login: 'octocat', name: 'Mona' }, rateLimit: { limit: 5000, remaining: 4999, resetAt: '2026-01-01' } }),
+      lastScopes: () => 'repo',
+    }),
+    liveConfig: () => ({ interceptLinks: true }),
+    describeError: (e) => String(e),
+    cacheStats: () => ({ size: 3, ttlMs: 1000 }),
+  })
+
+  const res = mockResponse()
+  await routes.get(STATUS_PATH)({
+    method: 'GET',
+    url: STATUS_PATH,
+    socket: { remoteAddress: '127.0.0.1' },
+    headers: {},
+  }, res)
+
+  const payload = res.result().json
+  assert.equal(res.result().status, 200)
+  assert.equal(payload.configured, true)
+  assert.equal(payload.login, 'octocat')
+  assert.equal(payload.source, 'test')
+  assert.equal(payload.scopes, 'repo')
+  assert.equal(payload.cache?.size, 3)
+})
