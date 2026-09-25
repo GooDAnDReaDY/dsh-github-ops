@@ -120,6 +120,7 @@ test('the optional repository path is absolute, traversal-free and bounded', () 
   assert.equal(validateCwd(''), '')
   assert.equal(validateCwd('   '), '')
   assert.equal(validateCwd('/srv/repo'), '/srv/repo')
+  for (const sysRoot of ['/etc', '/etc/passwd', '/proc', '/sys', '/root', '/dev']) { assert.throws(() => validateCwd(sysRoot), /system directory/, `must refuse system path ${sysRoot}`) }
   for (const bad of ['srv/repo', '../repo', '/srv/../etc', '/srv\u0000repo', '/' + 'a'.repeat(600)]) {
     assert.throws(() => validateCwd(bad), /repository path/, `must refuse ${JSON.stringify(bad).slice(0, 30)}`)
   }

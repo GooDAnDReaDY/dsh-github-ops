@@ -34,6 +34,28 @@ test('only a local or same-origin caller may read the status', () => {
   )
   assert.equal(isTrustedRequest(request({ address: '192.168.1.50', headers: { origin: 'not a url' } })), false)
   assert.equal(isTrustedRequest(null), false)
+  // DNS rebinding and cross-site rejection tests (Refs: #55)
+  assert.equal(
+    isTrustedRequest(request({
+      address: '203.0.113.10',
+      headers: { host: 'attacker.example', origin: 'http://attacker.example' },
+    })),
+    false,
+    'public forged domain is refused',
+  )
+  assert.equal(
+    isTrustedRequest(request({
+      address: '192.168.1.50',
+      headers: {
+        host: '192.168.1.111:3080',
+        origin: 'http://192.168.1.111:3080',
+        'sec-fetch-site': 'cross-site',
+      },
+    })),
+    false,
+    'cross-site fetch is refused even with same host/origin',
+  )
+
 })
 
 test('the payload carries what the card shows and never a value', () => {
