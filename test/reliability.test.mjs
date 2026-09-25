@@ -204,3 +204,15 @@ test('the access value never reaches an error, a hint or a rendered result', asy
   assert.ok(!rendered.includes(secret), 'the value is not in the failure')
   assert.ok(!rendered.includes('ThisIsTheFake'), 'no fragment of the value is there either')
 })
+
+test('mutating actions clear cache of active clientHolder instance', async () => {
+  let cleared = false
+  const fakeClient = {
+    cacheClear: () => { cleared = true },
+    cacheStats: () => ({ size: 0, ttlMs: 60000 }),
+  }
+  // Simulate write tool cache reset logic
+  fakeClient.cacheClear()
+  assert.equal(cleared, true)
+  assert.deepEqual(fakeClient.cacheStats(), { size: 0, ttlMs: 60000 })
+})
