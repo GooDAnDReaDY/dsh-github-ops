@@ -2,6 +2,21 @@
 
 Notable changes to `@goodandready/dsh-github-ops`.
 
+## 0.2.5
+
+### Fixed
+- Fixed injected dependencies in `registerRoutes` throwing errors when accessing status and SCM endpoints (#53).
+- Fixed `url` ReferenceError before initialization in SCM route query parameter parsing (#54).
+- Hardened SCM route with fail-closed origin check and restricted allowed repository paths (#55).
+- Fixed UI surface registrations (sidebar, PR bar, Source Control tab) getting cut off by misplaced apply closing bracket in client loader (#56).
+- Fixed cache invalidation on mutating write tools and restored `cacheStats` via `clientHolder` (#57).
+- Removed unused dead export `identityMeta` from `lib/present.js` (#58).
+- Eliminated hardcoded color fallbacks in client styling (#61).
+- Ignored internal planning and agent artifacts in git index (#60).
+
+### Added
+- One-click plugin updater in settings via standard `registerPluginUpdater` endpoint (#59).
+
 ## 0.2.4
 
 ### Fixed
