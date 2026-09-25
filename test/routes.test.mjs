@@ -46,7 +46,7 @@ test('registerRoutes binds dependencies and handles 405 on unsupported methods',
     }),
     liveConfig: () => ({ interceptLinks: false }),
     describeError: (e) => String(e),
-    makeGitRunner: () => () => ({ code: 0, stdout: 'main\n' }),
+    makeGitRunner: () => () => ({ code: 0, stdout: 'main' }),
     cacheStats: () => ({ size: 5, ttlMs: 60000 }),
   })
 
@@ -87,4 +87,27 @@ test('STATUS_PATH answers statusPayload for trusted request without throwing', a
   assert.equal(payload.source, 'test')
   assert.equal(payload.scopes, 'repo')
   assert.equal(payload.cache?.size, 3)
+})
+
+test('SCM_PATH reads cwd parameter from url without ReferenceError', async () => {
+  const { ctx, routes } = createHarness()
+  registerRoutes(ctx, {
+    makeGitRunner: () => async (args) => {
+      if (args.includes('status')) return { code: 0, stdout: '' }
+      if (args.includes('--show-current')) return { code: 0, stdout: 'main' }
+      if (args.includes('branch')) return { code: 0, stdout: 'main\t*' }
+      return { code: 0, stdout: '' }
+    },
+  })
+
+  const res = mockResponse()
+  await routes.get(SCM_PATH)({
+    method: 'GET',
+    url: `${SCM_PATH}?cwd=/tmp`,
+    socket: { remoteAddress: '127.0.0.1' },
+    headers: {},
+  }, res)
+
+  assert.equal(res.result().status, 200)
+  assert.equal(res.result().json.cwd, '/tmp')
 })
