@@ -2,6 +2,12 @@
 
 Notable changes to `@goodandready/dsh-github-ops`.
 
+## 0.2.7
+
+### Added
+- **Git Worktrees Support** (#47): porcelain worktrees inventory parsing (`parseWorktrees`), `worktreeAdd` and `worktreeRemove` actions with confirm protection, and UI worktree switching bar in Source Control tab.
+- **Automated Release Preflight** (#65): `gh_release_preflight` tool validating package version, cordis.patch.yml alignment, changelog release sections, 3-language READMEs (EN, RU, ZH), package bundle size limits (<=256 KiB), and git index hygiene.
+
 ## 0.2.6
 
 ### Fixed
