@@ -9,8 +9,9 @@ const client = fs.readFileSync(path.join(here, '..', 'lib', 'client.js'), 'utf8'
 const host = fs.readFileSync(path.join(here, '..', 'lib', 'index.js'), 'utf8')
 const routes = fs.readFileSync(path.join(here, '..', 'lib', 'routes.js'), 'utf8')
 
-test('the pull request bar sits in the composer bar seat and hides when there is nothing to suggest', () => {
-  assert.match(client, /ctx\.slots\.inject\('conversation\.composer\.bar'/)
+test('the pull request bar sits in the composer input dock seat and hides when there is nothing to suggest', () => {
+  assert.match(client, /ctx\.slots\.inject\('conversation\.input\.dock'/)
+  assert.match(client, /id:\s*'@goodandready\/dsh-github-ops#pr-bar'/)
   assert.match(client, /function PullRequestBar\(props\)/)
   assert.match(client, /ahead <= 0\) return null/, 'no bar without commits ahead of the upstream')
   assert.match(client, /payload\.ahead \|\| 0/, 'a repository without an upstream does not show one')
