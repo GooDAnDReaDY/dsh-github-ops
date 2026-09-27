@@ -7,6 +7,7 @@ import {
   parseBranches,
   parseStashes,
   parseCount,
+  parseWorktrees,
   scmPayload,
   mergeStateFrom,
 } from '../lib/scm.js'
@@ -102,4 +103,35 @@ test('a repository without an upstream reports null ahead/behind, not zero', () 
   assert.equal(payload.ahead, null)
   assert.equal(payload.behind, null)
   assert.equal(payload.upstream, '')
+})
+
+test('parseWorktrees parses git worktree list porcelain format', () => {
+  const sample = `worktree /home/user/repo
+HEAD 1234567890abcdef1234567890abcdef12345678
+branch refs/heads/main
+
+worktree /home/user/repo/.worktrees/feature
+HEAD abcdef1234567890abcdef1234567890abcdef12
+branch refs/heads/feature-x
+
+worktree /home/user/repo/.worktrees/locked-one
+HEAD dedbeef1234567890abcdef1234567890abcdef12
+detached
+locked reason for lock
+prunable gitdir file points to non-existent location
+`
+  const wts = parseWorktrees(sample)
+  assert.equal(wts.length, 3)
+  assert.equal(wts[0].path, '/home/user/repo')
+  assert.equal(wts[0].branch, 'main')
+  assert.equal(wts[0].detached, false)
+  assert.equal(wts[1].path, '/home/user/repo/.worktrees/feature')
+  assert.equal(wts[1].branch, 'feature-x')
+  assert.equal(wts[2].detached, true)
+  assert.equal(wts[2].locked, true)
+  assert.equal(wts[2].lockReason, 'reason for lock')
+  assert.equal(wts[2].prunable, true)
+
+  const empty = parseWorktrees('')
+  assert.deepEqual(empty, [])
 })

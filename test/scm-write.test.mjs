@@ -28,6 +28,8 @@ test('every action builds argv arrays and never a shell string', () => {
       stashApply: { ref: 'stash@{0}' },
       stashPop: { ref: 'stash@{0}' },
       stashDrop: { ref: 'stash@{0}', confirm: true },
+      worktreeAdd: { path: '/tmp/wt' },
+      worktreeRemove: { path: '/tmp/wt', confirm: true },
       continue: { verb: 'merge' },
       abort: { verb: 'rebase', confirm: true },
     }[action]
@@ -124,4 +126,29 @@ test('the optional repository path is absolute, traversal-free and bounded', () 
   for (const bad of ['srv/repo', '../repo', '/srv/../etc', '/srv\u0000repo', '/' + 'a'.repeat(600)]) {
     assert.throws(() => validateCwd(bad), /repository path/, `must refuse ${JSON.stringify(bad).slice(0, 30)}`)
   }
+})
+
+test('worktreeAdd generates valid worktree add step', () => {
+  const res1 = buildAction('worktreeAdd', { path: '/srv/repo-wt' })
+  assert.deepEqual(res1.steps, [['worktree', 'add', '/srv/repo-wt']])
+
+  const res2 = buildAction('worktreeAdd', { path: '/srv/repo-wt', branch: 'feat/x' })
+  assert.deepEqual(res2.steps, [['worktree', 'add', '/srv/repo-wt', 'feat/x']])
+
+  const res3 = buildAction('worktreeAdd', { path: '/srv/repo-wt', newBranch: 'feat/new' })
+  assert.deepEqual(res3.steps, [['worktree', 'add', '-b', 'feat/new', '/srv/repo-wt']])
+
+  assert.throws(() => buildAction('worktreeAdd', { path: '' }), /worktree path is required/)
+  assert.throws(() => buildAction('worktreeAdd', { path: 'relative/path' }), /must be absolute/)
+})
+
+test('worktreeRemove requires confirmation and produces worktree remove step', () => {
+  assert.throws(() => buildAction('worktreeRemove', { path: '/srv/repo-wt' }), /without confirm: true/)
+  const res = buildAction('worktreeRemove', { path: '/srv/repo-wt', confirm: true })
+  assert.deepEqual(res.steps, [['worktree', 'remove', '/srv/repo-wt']])
+  assert.equal(res.destructive, true)
+  assert.equal(res.needsConfirm, true)
+
+  const resForce = buildAction('worktreeRemove', { path: '/srv/repo-wt', confirm: true, force: true })
+  assert.deepEqual(resForce.steps, [['worktree', 'remove', '--force', '/srv/repo-wt']])
 })
