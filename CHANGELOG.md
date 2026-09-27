@@ -2,6 +2,11 @@
 
 Notable changes to `@goodandready/dsh-github-ops`.
 
+## 0.2.6
+
+### Fixed
+- Fixed fatal slot collision in `conversation.composer.bar`: re-targeted `PullRequestBar` to the canonical list slot `conversation.input.dock` with id `@goodandready/dsh-github-ops#pr-bar`, preventing priority 0 registration collision with DSH core's resident composer body (#63).
+
 ## 0.2.5
 
 ### Fixed
