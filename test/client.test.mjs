@@ -83,7 +83,7 @@ test('apply registers the plugin-list seat first, then the row seat and the lega
     'plugins.item',
     'plugins.row.config',
     'settings.plugin.item',
-    'conversation.composer.bar',
+    'conversation.input.dock',
     'conversation.view',
   ])
   const seats = registered.filter((r) => r.entry)
@@ -95,6 +95,8 @@ test('apply registers the plugin-list seat first, then the row seat and the lega
   assert.equal(seats[0].entry.label(), 'GitHub ops', 'the label is a static string')
   assert.equal(seats[1].entry.key, '@goodandready/dsh-github-ops#dsh-github-ops')
   assert.equal(seats[2].entry.key, 'dsh-github-ops')
+  assert.equal(seats[3].entry.name, 'conversation.input.dock')
+  assert.equal(seats[3].entry.id, '@goodandready/dsh-github-ops#pr-bar')
   for (const seat of seats) assert.equal(seat.entry.locale, 'dsh-github-ops')
 })
 
