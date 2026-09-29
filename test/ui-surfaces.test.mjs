@@ -41,7 +41,7 @@ test('link watching is opt-in and only records what the human clicked', () => {
   assert.match(client, /const linkState = \{ repo: '', enabled: false \}/)
   assert.match(client, /if \(!linkState\.enabled\) return/, 'off unless the setting says otherwise')
   assert.match(client, /github\\\.com\\\/\(\[\^\/\]\+\)\\\/\(\[\^\/\?#\]\+\)/, 'only github.com links are read')
-  assert.match(host, /interceptLinks: Schema\.boolean\(\)\.default\(false\)/, 'off by default in the settings')
+  assert.match(host, /interceptLinks: Schema\.boolean\(\)\.volatile\(\)\.default\(false\)/, 'off by default in the settings')
   assert.match(routes, /interceptLinks: liveConfig\(\)\.interceptLinks === true/, 'and reported to the card through the status payload')
 })
 
