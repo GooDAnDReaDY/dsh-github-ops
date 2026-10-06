@@ -151,12 +151,26 @@ test('runTests flag executes test command and fails if tests fail', async () => 
   }
   const packFiles = [{ path: 'package.json', size: 100 }]
   const depsFail = makeMockDeps({ files, packFiles, testPasses: false })
-  const resultFail = await runReleasePreflight({ cwd: '/test', runTests: true }, depsFail)
+  // Without confirm: true, runTests must be rejected
+  await assert.rejects(
+    () => runReleasePreflight({ cwd: '/test', runTests: true }, depsFail),
+    /running test suite during preflight audit requires confirm: true/,
+  )
+
+  const resultFail = await runReleasePreflight({ cwd: '/test', runTests: true, confirm: true }, depsFail)
   assert.equal(resultFail.ok, false)
   assert.ok(resultFail.findings.some((f) => f.includes('test suite failed')))
 
   const depsPass = makeMockDeps({ files, packFiles, testPasses: true })
-  const resultPass = await runReleasePreflight({ cwd: '/test', runTests: true }, depsPass)
+  const resultPass = await runReleasePreflight({ cwd: '/test', runTests: true, confirm: true }, depsPass)
   assert.equal(resultPass.ok, true)
   assert.equal(resultPass.verdict, 'PASS')
+})
+
+test('runReleasePreflight rejects disallowed system cwd', async () => {
+  const deps = makeMockDeps({ files: {} })
+  await assert.rejects(
+    () => runReleasePreflight({ cwd: '/etc' }, deps),
+    /access to system directory "\/etc" is not allowed/,
+  )
 })
