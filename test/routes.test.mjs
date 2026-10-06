@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { Readable } from 'node:stream'
 
 import { registerRoutes, STATUS_PATH, SCM_PATH, PANEL_PATH } from '../lib/routes.js'
 
@@ -110,4 +111,27 @@ test('SCM_PATH reads cwd parameter from url without ReferenceError', async () =>
 
   assert.equal(res.result().status, 200)
   assert.equal(res.result().json.cwd, '/tmp')
+})
+
+test('SCM write route passes timeoutMs to git runner', async () => {
+  const { ctx, routes } = createHarness()
+  const calls = []
+  registerRoutes(ctx, {
+    makeGitRunner: () => async (args, opts) => {
+      calls.push({ args, opts })
+      return { code: 0, stdout: '', stderr: '' }
+    },
+  })
+
+  const res = mockResponse()
+  const req = Readable.from([Buffer.from(JSON.stringify({ action: 'push', args: {} }))])
+  req.method = 'POST'
+  req.url = SCM_PATH
+  req.socket = { remoteAddress: '127.0.0.1' }
+  req.headers = { host: 'localhost:3080' }
+
+  await routes.get(SCM_PATH)(req, res)
+
+  assert.equal(res.result().status, 200)
+  assert.equal(calls[0].opts.timeoutMs, 120000)
 })

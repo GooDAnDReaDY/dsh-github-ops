@@ -69,3 +69,20 @@ test('object-typed tool parameters set additionalProperties explicitly', () => {
   }
   assert.deepEqual(bad, [], 'every object parameter needs additionalProperties: true|false')
 })
+
+test('plainConfig unwraps volatile boxes and nested objects', () => {
+  const code = source.slice(source.indexOf('export function plainConfig'), source.indexOf('export const Config'))
+  const fn = new Function(`${code.replace('export function plainConfig', 'return function plainConfig')}`)()
+  assert.equal(fn(123), 123)
+  assert.equal(fn('str'), 'str')
+  assert.deepEqual(fn({ a: { get: () => 'hello' }, b: 42 }), { a: 'hello', b: 42 })
+  assert.deepEqual(fn({ nested: { box: { get: () => ({ inner: { get: () => 'deep' } }) } } }), { nested: { box: { inner: 'deep' } } })
+})
+
+test('Config declares volatile fields for DSH 0.2 live-value contract', () => {
+  assert.match(source, /tokenEnv:\s*Schema\.string\(\)\.volatile\(\)/)
+  assert.match(source, /reviewRulesJson:\s*Schema\.string\(\)\.volatile\(\)/)
+  assert.match(source, /accessFile:\s*Schema\.string\(\)\.volatile\(\)/)
+  assert.match(source, /const config = plainConfig\(/)
+  assert.match(source, /return plainConfig\(\{ \.\.\.config/)
+})
