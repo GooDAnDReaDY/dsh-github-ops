@@ -153,3 +153,43 @@ test('the settings card renders even when the settings service is unavailable', 
   const flat = JSON.stringify(tree)
   assert.ok(flat.includes('statusUnavailable'), 'an unavailable snapshot must be stated, not hidden')
 })
+
+test('fetch calls in client use AbortSignal when available', () => {
+  const code = fs.readFileSync(clientPath, 'utf8')
+  let loaded = null
+  const calls = []
+  const win = { __ModuleLoader__: { load: (mod) => { loaded = mod } } }
+  const fakeAbortSignal = {
+    timeout: (ms) => ({ ms, aborted: false }),
+  }
+  const context = vm.createContext({
+    window: win,
+    fetch: async (url, opts) => {
+      calls.push({ url, opts })
+      return { ok: true, status: 200, json: async () => ({}) }
+    },
+    AbortSignal: fakeAbortSignal,
+    console,
+    setTimeout,
+    clearTimeout,
+    setInterval,
+    clearInterval,
+    document: {
+      querySelector: () => null,
+      createElement: () => ({ dataset: {}, style: {}, textContent: '', appendChild: () => {} }),
+      head: { appendChild: () => {} },
+    },
+  })
+  vm.runInContext(code, context)
+  const factory = loaded.factory((name) => {
+    if (name === 'react') return makeFakeReact()
+    throw new Error('unexpected require: ' + name)
+  })
+  const ctx = {
+    locale: { register: () => {} },
+    slots: { inject: (_n, f) => f(), register: () => () => {} },
+  }
+  factory.GitHubOpsCard({ view: 'page', ctx, t: (k) => k, open: true })
+  assert.ok(calls.length > 0, 'fetch should be called for status check')
+  assert.equal(calls[0].opts.signal?.ms, 15000, 'AbortSignal.timeout should be attached with 15000ms')
+})

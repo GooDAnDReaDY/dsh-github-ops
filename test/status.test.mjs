@@ -107,6 +107,6 @@ test('the host registers the route behind the trust check, and the card reads it
   assert.match(routes, /req\.method !== 'GET'/)
   assert.match(routes, /statusPayload\(\{/)
   assert.match(clientSource, /const STATUS_PATH = '\/dsh-github-ops\/status'/)
-  assert.match(clientSource, /fetch\(STATUS_PATH, \{ headers: \{ accept: 'application\/json' \} \}\)/)
+  assert.match(clientSource, /fetch(?:WithTimeout)?\(STATUS_PATH, \{ headers: \{ accept: 'application\/json' \} \}\)/)
   assert.match(clientSource, /className: 'gho-status'/)
 })

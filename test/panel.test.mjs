@@ -89,7 +89,7 @@ test('the panel reads through the host route and never sends a write', () => {
   const start = client.indexOf('function GitHubPanel(props)')
   const end = client.indexOf('let cssInstalled = false', start)
   const component = client.slice(start, end)
-  assert.match(component, /fetch\(`\$\{PANEL_PATH\}\?\$\{query\}`/)
+  assert.match(component, /fetch(?:WithTimeout)?\(`\$\{PANEL_PATH\}\?\$\{query\}`/)
   assert.ok(!/method:\s*'POST'/i.test(component))
   assert.ok(!/gh_release_|pr_merge\(|window\.open\(/.test(component), 'links are anchors, not forced windows')
   assert.match(component, /target: '_blank'/)
