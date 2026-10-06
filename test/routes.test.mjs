@@ -135,3 +135,20 @@ test('SCM write route passes timeoutMs to git runner', async () => {
   assert.equal(res.result().status, 200)
   assert.equal(calls[0].opts.timeoutMs, 120000)
 })
+
+test('SCM write route rejects cross-site requests with 403', async () => {
+  const { ctx, routes } = createHarness()
+  registerRoutes(ctx, {
+    makeGitRunner: () => async () => ({ code: 0, stdout: '', stderr: '' }),
+  })
+
+  const res = mockResponse()
+  const req = Readable.from([Buffer.from(JSON.stringify({ action: 'push', args: {} }))])
+  req.method = 'POST'
+  req.url = SCM_PATH
+  req.socket = { remoteAddress: '127.0.0.1' }
+  req.headers = { host: 'localhost:3080', 'sec-fetch-site': 'cross-site' }
+
+  await routes.get(SCM_PATH)(req, res)
+  assert.equal(res.result().status, 403)
+})

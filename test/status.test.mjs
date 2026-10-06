@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { isTrustedRequest, statusPayload, sendJson } from '../lib/status.js'
+import { isTrustedRequest, isTrustedWriteRequest, statusPayload, sendJson } from '../lib/status.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const routes = fs.readFileSync(path.join(here, '..', 'lib', 'routes.js'), 'utf8')
@@ -109,4 +109,53 @@ test('the host registers the route behind the trust check, and the card reads it
   assert.match(clientSource, /const STATUS_PATH = '\/dsh-github-ops\/status'/)
   assert.match(clientSource, /fetch(?:WithTimeout)?\(STATUS_PATH, \{ headers: \{ accept: 'application\/json' \} \}\)/)
   assert.match(clientSource, /className: 'gho-status'/)
+})
+
+test('isTrustedRequest strictly rejects cross-site on loopback and spoofed x-forwarded-host', () => {
+  // Loopback with cross-site header must be rejected (CSRF defense)
+  assert.equal(
+    isTrustedRequest(request({ address: '127.0.0.1', headers: { host: 'localhost:3080', 'sec-fetch-site': 'cross-site' } })),
+    false,
+    'cross-site on loopback is rejected'
+  )
+
+  // Spoofed x-forwarded-host must not bypass host validation
+  assert.equal(
+    isTrustedRequest(request({
+      address: '203.0.113.10',
+      headers: { host: 'evil.example', 'x-forwarded-host': 'localhost:3080', origin: 'http://localhost:3080' },
+    })),
+    false,
+    'spoofed x-forwarded-host is rejected'
+  )
+})
+
+test('isTrustedWriteRequest enforces strict origin and same-origin fetch-site rules', () => {
+  // Loopback without origin is allowed for local tools
+  assert.equal(isTrustedWriteRequest(request({ address: '127.0.0.1', headers: { host: 'localhost:3080' } })), true)
+
+  // Remote caller without origin is rejected for write
+  assert.equal(isTrustedWriteRequest(request({ address: '192.168.1.50', headers: { host: '192.168.1.111:3080' } })), false)
+
+  // Cross-site write is rejected
+  assert.equal(
+    isTrustedWriteRequest(request({
+      address: '127.0.0.1',
+      headers: { host: 'localhost:3080', 'sec-fetch-site': 'cross-site' },
+    })),
+    false
+  )
+
+  // same-origin write with matching host is allowed
+  assert.equal(
+    isTrustedWriteRequest(request({
+      address: '192.168.1.50',
+      headers: {
+        host: '192.168.1.111:3080',
+        origin: 'http://192.168.1.111:3080',
+        'sec-fetch-site': 'same-origin',
+      },
+    })),
+    true
+  )
 })
