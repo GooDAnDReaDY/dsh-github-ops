@@ -159,3 +159,17 @@ test('isTrustedWriteRequest enforces strict origin and same-origin fetch-site ru
     true
   )
 })
+
+
+test('isTrustedRequest and isTrustedWriteRequest reject untrusted remote socket even with matching host/origin', () => {
+  const forged = request({
+    address: '203.0.113.10',
+    headers: {
+      host: 'localhost:3080',
+      origin: 'http://localhost:3080',
+      'sec-fetch-site': 'same-origin',
+    },
+  })
+  assert.equal(isTrustedRequest(forged), false, 'remote address spoofing localhost must be rejected')
+  assert.equal(isTrustedWriteRequest(forged), false, 'remote address spoofing write must be rejected')
+})
