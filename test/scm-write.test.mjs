@@ -152,3 +152,17 @@ test('worktreeRemove requires confirmation and produces worktree remove step', (
   const resForce = buildAction('worktreeRemove', { path: '/srv/repo-wt', confirm: true, force: true })
   assert.deepEqual(resForce.steps, [['worktree', 'remove', '--force', '/srv/repo-wt']])
 })
+
+
+test('validateCwd rejects symlinks pointing to disallowed system paths', async () => {
+  const fs = await import('node:fs/promises')
+  const os = await import('node:os')
+  const path = await import('node:path')
+  const symlinkPath = path.join(os.tmpdir(), `test-symlink-etc-${Date.now()}`)
+  try {
+    await fs.symlink('/etc', symlinkPath)
+    assert.throws(() => validateCwd(symlinkPath), /access to system directory "\/etc" is not allowed/)
+  } finally {
+    await fs.unlink(symlinkPath).catch(() => {})
+  }
+})
