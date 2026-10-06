@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.11
+
+### Security
+- **Strict CSRF & Origin Verification on SCM Writes** (#98, #81, #99): Added `isTrustedWriteRequest` guarding `POST /scm`. Discarded client-supplied `X-Forwarded-Host` in favor of validated `Host` header. Enforced strict fail-closed policy on cross-site requests (`Sec-Fetch-Site: cross-site`) across loopback and local networks.
+- **Path Segment Encoding & Traversal Defense** (#87): Added `encodeRepoPath` to prevent directory traversal (`..`) and URI-encode path segments in GitHub Contents API endpoints (`getFile`, `deleteFile`, and blob viewer route).
+- **Mirror Publication Isolation & Option Injection Defense** (#83, #91): Added strict validation on mirror destination URLs and branch names (`validateRemote`, `validateBranchName`) to reject leading hyphen flags and CLI option injection into git arguments. Replaced predictable temp index paths with `crypto.randomUUID()`-backed paths in `tmpdir()`.
+- **Release Asset Upload Workspace Containment** (#82): Restricted release asset file uploads to files within the workspace root or allowlisted local files, rejecting system directories (`/etc`, `/proc`, `/sys`, etc.), traversal paths, and control characters.
+
 ## 0.2.10
 
 ### Fixed
