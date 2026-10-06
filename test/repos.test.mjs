@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import { getRepo, getFile, searchRepos, createRepo, editRepo } from '../lib/tools/repos.js'
+import { encodeRepoPath } from '../lib/github.js'
 
 function clientDouble(routes) {
   const calls = []
@@ -131,4 +132,27 @@ test('editRepo with topics only still reads the repository once', async () => {
   const updated = await editRepo(client, { owner: 'o', repo: 'r', topics: ['a'] })
   assert.deepEqual(updated.topics, ['a'])
   assert.equal(updated.fullName, 'o/r')
+})
+
+test('encodeRepoPath properly encodes special characters and blocks traversal', () => {
+  assert.equal(encodeRepoPath('src/hello world.js'), 'src/hello%20world.js')
+  assert.equal(encodeRepoPath('docs/file#1.md'), 'docs/file%231.md')
+  assert.equal(encodeRepoPath('a/b?c/d'), 'a/b%3Fc/d')
+  assert.equal(encodeRepoPath('/leading/slash.txt'), 'leading/slash.txt')
+  assert.throws(() => encodeRepoPath(''), /path is required/)
+  assert.throws(() => encodeRepoPath('../evil.js'), /path must not contain traversal segments/)
+  assert.throws(() => encodeRepoPath('a/../../b'), /path must not contain traversal segments/)
+  assert.throws(() => encodeRepoPath('./local.js'), /path must not contain traversal segments/)
+})
+
+test('getFile uses encoded path and blocks traversal', async () => {
+  const client = {
+    get: async (url) => ({ data: { path: url, content: '' } }),
+  }
+  await assert.rejects(
+    () => getFile(client, { owner: 'o', repo: 'r', path: '../secret.txt' }),
+    /traversal segments/
+  )
+  const res = await getFile(client, { owner: 'o', repo: 'r', path: 'folder/name with space.txt' })
+  assert.equal(res.path, '/repos/o/r/contents/folder/name%20with%20space.txt')
 })
