@@ -240,3 +240,64 @@ test('generateReleaseNotes requests release notes from GitHub API', async () => 
   assert.equal(client.calls[0].body.tag_name, 'v1.0.0')
   assert.equal(client.calls[0].body.target_commitish, 'main')
 })
+
+
+test('uploadReleaseAsset rejects system paths such as /etc/passwd', async () => {
+  const client = clientDouble([])
+  await assert.rejects(
+    () => uploadReleaseAsset(client, { owner: 'o', repo: 'r', tag: 'v0.1.0', filePath: '/etc/passwd' }),
+    /access to system directory "\/etc" is not allowed/,
+  )
+})
+
+test('uploadReleaseAsset rejects paths with control characters', async () => {
+  const client = clientDouble([])
+  await assert.rejects(
+    () => uploadReleaseAsset(client, { owner: 'o', repo: 'r', tag: 'v0.1.0', filePath: 'test\0file.txt' }),
+    /filePath may not contain control characters/,
+  )
+})
+
+test('uploadReleaseAsset rejects paths escaping workspace directory when cwd is set', async () => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-release-cwd-'))
+  const outsideFile = path.join(os.tmpdir(), 'dsh-outside-asset.txt')
+  await fs.writeFile(outsideFile, 'secret outside')
+  try {
+    const client = clientDouble([])
+    await assert.rejects(
+      () => uploadReleaseAsset(client, {
+        owner: 'o', repo: 'r', tag: 'v0.1.0',
+        filePath: '../dsh-outside-asset.txt',
+        cwd: tmpDir,
+      }),
+      /filePath must reside within the workspace directory/,
+    )
+  } finally {
+    await fs.unlink(outsideFile).catch(() => {})
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
+  }
+})
+
+test('uploadReleaseAsset succeeds for files within workspace directory when cwd is set', async () => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-release-cwd-'))
+  const insideFile = path.join(tmpDir, 'valid-asset.txt')
+  await fs.writeFile(insideFile, 'hello safe asset')
+  try {
+    const client = {
+      ...clientDouble([['/repos/o/r/releases/tags/', release]]),
+      baseUrl: 'https://api.github.com',
+      call: async () => ({
+        data: { id: 303, name: 'valid-asset.txt', size: 16, browser_download_url: 'https://x/valid-asset.txt' },
+      }),
+    }
+    const uploaded = await uploadReleaseAsset(client, {
+      owner: 'o', repo: 'r', tag: 'v0.1.0',
+      filePath: 'valid-asset.txt',
+      cwd: tmpDir,
+    })
+    assert.equal(uploaded.id, 303)
+    assert.equal(uploaded.name, 'valid-asset.txt')
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
+  }
+})
