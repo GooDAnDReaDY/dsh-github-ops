@@ -41,7 +41,7 @@ const repo = {
 
 const release = { id: 1, tag_name: 'v1.0.0', name: 'v1.0.0', draft: false, prerelease: false, published_at: new Date().toISOString(), created_at: new Date().toISOString(), assets: [] }
 const issue = { number: 1, title: 'bug', state: 'open', user: { login: 'u' }, created_at: new Date().toISOString(), labels: [], assignees: [] }
-const pull = { number: 2, title: 'feat', state: 'open', user: { login: 'u' }, created_at: new Date().toISOString(), closed_at: new Date().toISOString(), labels: [], assignees: [], pull_request: { url: 'x' } }
+const pull = { number: 2, title: 'feat', state: 'closed', user: { login: 'u' }, created_at: new Date().toISOString(), closed_at: new Date().toISOString(), labels: [], assignees: [], pull_request: { url: 'x', merged_at: new Date().toISOString() } }
 const commit = { sha: 'abcdef1234567890', commit: { message: 'fix: thing\n\nbody', author: { name: 'Ann', date: new Date().toISOString() } } }
 
 test('repoReport composes overview, release, issues, commits and contributors', async () => {
@@ -187,4 +187,20 @@ test('listCommits and listContributors cut the page locally', async () => {
   assert.equal(commits.count, 3)
   const contributors = await listContributors(client, { owner: 'o', repo: 'r', limit: 2 })
   assert.equal(contributors.count, 2)
+})
+
+test('weeklyDigest excludes closed-unmerged pull requests from mergedPulls', async () => {
+  const fresh = new Date().toISOString()
+  const unmergedPull = { ...pull, number: 3, pull_request: { url: 'y', merged_at: null } }
+  const client = {
+    get: async (path, opts) => {
+      if (path.includes('/issues')) {
+        const kind = opts && opts.query && opts.query.kind
+        if (kind === 'pr') return { data: [unmergedPull] }
+      }
+      return { data: [] }
+    },
+  }
+  const digest = await weeklyDigest(client, { owner: 'o', repo: 'r', days: 7 })
+  assert.equal(digest.mergedPulls.length, 0, 'closed but unmerged PR must not be counted in mergedPulls')
 })
