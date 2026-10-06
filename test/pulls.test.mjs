@@ -299,7 +299,7 @@ test('resolveReviewThread resolves and unresolves via GraphQL', async () => {
   const client = {
     graphql: async (query, vars) => {
       calls.push({ query, vars })
-      const isResolve = query.includes('resolveReviewThread(')
+      const isResolve = !query.includes('unresolveReviewThread')
       return {
         [isResolve ? 'resolveReviewThread' : 'unresolveReviewThread']: {
           thread: { id: vars.threadId, isResolved: isResolve },
@@ -315,4 +315,14 @@ test('resolveReviewThread resolves and unresolves via GraphQL', async () => {
   const unresolved = await resolveReviewThread(client, { owner: 'o', repo: 'r', threadId: 'thread_1', resolve: false })
   assert.equal(unresolved.isResolved, false)
   assert.ok(calls[1].query.includes('unresolveReviewThread('))
+})
+
+test('resolveReviewThread throws when mutation returns no thread', async () => {
+  const client = {
+    graphql: async () => ({ resolveReviewThread: { thread: null } }),
+  }
+  await assert.rejects(
+    () => resolveReviewThread(client, { owner: 'o', repo: 'r', threadId: 'bad_thread', resolve: true }),
+    /mutation returned no thread/
+  )
 })
