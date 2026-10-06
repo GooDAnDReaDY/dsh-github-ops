@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.2.10
+
+### Fixed
+- **Settings Surface & Volatile Fields on DSH 0.2** (#76, #85): Config fields declare `.volatile()` wrappers and live settings reads are unwrapped via `plainConfig()` to comply with the DSH 0.2 live-value contract and prevent settings from being marked unavailable.
+- **Dead settingsScope.replace Removed** (#100, #86): Removed unused dead `settingsScope.replace` method that swallowed errors.
+- **Client Fetch AbortSignal Timeout** (#101): Attached 15s/120s `AbortSignal` timeouts to all `fetch` calls in `lib/client.js` to prevent the UI from hanging indefinitely on stalled requests.
+- **Git Runner Timeout** (#90): SCM route passes `timeoutMs` (120000ms) to `execFileAsync` git runner options, properly enforcing timeouts on write operations.
+- **Presenter Interpolation Format** (#94): Fixed entity number interpolation in `issue_comment` (`#${number}`) and `pr_merge` (`Merged pull request #${number}`) cards.
+- **GraphQL Thread Mutation Validation** (#88): `resolveReviewThread` validates return thread existence and throws on empty/null responses instead of reporting false success.
+- **Merged PRs Filter** (#89): `mergedPulls` in insights now verifies `mergedAt` presence instead of counting closed-unmerged pull requests.
+- **Auth Device Secret Await** (#84): Fixed missing `await auth.secret()` in `register-write.js` that was passing a Promise instance as OAuth `client_secret`.
+
+## 0.2.9
+
+### Fixed
+- **Audit Findings & Stability**: Pre-release audit bundle addressing review thread mutations, auth credentials and input validation.
+
+
 ## 0.2.8
 
 ### Fixed
