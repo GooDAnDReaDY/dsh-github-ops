@@ -142,3 +142,22 @@ test('a stored file never appears in a tool result by accident', async () => {
   const saved = await writeAccessFile(join(dir, 'auth2.json'), { token: 'gho_top_secret', login: 'octocat' })
   assert.deepEqual(Object.keys(saved).sort(), ['login', 'path', 'scope'], 'the result carries no value')
 })
+
+test('pollDeviceFlow receives resolved string client_secret, not a Promise', async () => {
+  const fetchImpl = deviceFetch({
+    polls: [{ access_token: 'gho_token', scope: 'repo' }],
+  })
+  const secretPromise = Promise.resolve('my-secret-value')
+  const resolvedSecret = await secretPromise
+  const result = await pollDeviceFlow({
+    clientId: 'client-1',
+    clientSecret: resolvedSecret,
+    deviceCode: 'code-1',
+    intervalSeconds: 1,
+    maxWaitMs: 5000,
+    fetchImpl,
+  })
+  assert.equal(result.status, 'authorized')
+  assert.equal(fetchImpl.calls[0].body.client_secret, 'my-secret-value')
+  assert.notEqual(fetchImpl.calls[0].body.client_secret, '[object Promise]')
+})
