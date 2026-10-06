@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.12
+
+### Security
+- **Release Preflight Test Confirmation & CWD Containment** (#80): Required `confirm: true` to execute `npm test` during `gh_release_preflight` audit, and routed audit directory through `validateCwd` to prevent arbitrary directory test execution.
+- **SCM Symlink Traversal Protection** (#96): Enhanced `validateCwd` with `realpathSync` resolution to prevent directory traversal and symlink escape into protected system directories (`/etc`, `/proc`, `/sys`, etc.).
+- **Socket Remote Address Verification & IPv6 Support** (#97): Enforced socket `remoteAddress` validation in `isTrustedRequest` and `isTrustedWriteRequest` to block untrusted external clients from spoofing matching `Host` and `Origin` headers. Fixed unbracketed IPv6 address parsing in `isTrustedHost`.
+
+### Refactored
+- **Mirror Git Index Directory Isolation** (#91): Created mirror temporary git-index inside an isolated `fs.mkdtemp` (0700) directory with guaranteed cleanup in `finally`.
+- **Dead Parameter Aliases Removed** (#92): Removed undeclared schema fallback aliases (`tagName`, `targetCommitish`, `previousTagName`, `configurationFilePath`, `pullNumber`) from tool registrations.
+- **Unused Parameters & Re-exports Cleanup** (#95): Removed unused `repoHint` in slash commands, dead `liveConfig()` call in `gh_auth_status`, and unused re-export of `runReleasePreflight`.
+
 ## 0.2.11
 
 ### Security
