@@ -52,3 +52,19 @@ test('a reviewed pull request card summarises areas, checks and findings', () =>
   assert.match(card.content[0].text, /areas: lib, test/)
   assert.match(card.content[0].text, /\[attention\] source changed without tests/)
 })
+
+test('issue_comment and pr_merge formats entity numbers correctly', () => {
+  const comment = presentationFor('issue_comment').presentResult({ number: 42 }, {
+    ok: true,
+    data: { id: 12345 },
+  })
+  assert.equal(comment.title, 'Commented on #42')
+  assert.match(comment.content[0].text, /comment id 12345/)
+
+  const merged = presentationFor('pr_merge').presentResult({ number: 99 }, {
+    ok: true,
+    data: { merged: true, message: 'Pull Request successfully merged', sha: 'abcdef123456' },
+  })
+  assert.equal(merged.title, 'Merged pull request #99')
+  assert.match(merged.content[0].text, /abcdef1/)
+})
