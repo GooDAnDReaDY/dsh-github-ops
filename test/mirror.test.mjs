@@ -6,6 +6,8 @@ import {
   allowlistFromManifest,
   planMirror,
   publishMirror,
+  validateRemote,
+  validateBranchName,
   DEFAULT_FORBIDDEN,
 } from '../lib/tools/mirror.js'
 
@@ -163,4 +165,29 @@ test('publishMirror refuses to publish a refused plan and reports an unfetched m
     ['rev-parse github/main', { code: 128, stdout: '', stderr: 'unknown revision' }],
   ])
   await assert.rejects(() => publishMirror({ git: noMirror, cwd: '/repo' }), /is not available locally/)
+})
+
+test('publishMirror validates mirror remote and branch names against option injection', async () => {
+  assert.throws(() => validateRemote('-oProxyCommand=calc.exe'), /invalid mirror remote name/)
+  assert.throws(() => validateRemote('--upload-pack=exploit'), /invalid mirror remote name/)
+  assert.equal(validateRemote('github'), 'github')
+  assert.equal(validateRemote('upstream'), 'upstream')
+
+  assert.throws(() => validateBranchName('-b'), /invalid branch name/)
+  assert.throws(() => validateBranchName('--track'), /invalid branch name/)
+  assert.equal(validateBranchName('main'), 'main')
+
+  const git = fakeGit([])
+  await assert.rejects(
+    () => publishMirror({ git, cwd: '/repo', mirror: '--upload-pack=bad' }),
+    /invalid mirror remote name/
+  )
+  await assert.rejects(
+    () => publishMirror({ git, cwd: '/repo', branch: '-f' }),
+    /invalid branch name/
+  )
+  await assert.rejects(
+    () => publishMirror({ git, cwd: '/repo', ref: '-c' }),
+    /invalid source ref/
+  )
 })
