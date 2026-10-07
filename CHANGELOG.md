@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+
+### Fixed
+- **Mirror Route Registration Lifecycle** (#64): Fixed `MIRROR_PATH` webServer registration by wrapping it in an independent `wctx.effect(registerMirror, ...)` lifecycle hook, ensuring the mirror inspection route is properly registered in Cordis runtime.
+
 ## 0.4.0
 
 ### Features

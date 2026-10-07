@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { Readable } from 'node:stream'
 
-import { registerRoutes, STATUS_PATH, SCM_PATH, PANEL_PATH } from '../lib/routes.js'
+import { registerRoutes, STATUS_PATH, SCM_PATH, PANEL_PATH, MIRROR_PATH } from '../lib/routes.js'
 
 function createHarness() {
   const routes = new Map()
@@ -54,6 +54,7 @@ test('registerRoutes binds dependencies and handles 405 on unsupported methods',
   assert.ok(routes.has(STATUS_PATH))
   assert.ok(routes.has(SCM_PATH))
   assert.ok(routes.has(PANEL_PATH))
+  assert.ok(routes.has(MIRROR_PATH))
 
   const res = mockResponse()
   await routes.get(STATUS_PATH)({ method: 'POST' }, res)
