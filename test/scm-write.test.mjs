@@ -28,6 +28,7 @@ test('every action builds argv arrays and never a shell string', () => {
       stashApply: { ref: 'stash@{0}' },
       stashPop: { ref: 'stash@{0}' },
       stashDrop: { ref: 'stash@{0}', confirm: true },
+      stashShow: { ref: 'stash@{0}' },
       worktreeAdd: { path: '/tmp/wt' },
       worktreeRemove: { path: '/tmp/wt', confirm: true },
       continue: { verb: 'merge' },
@@ -93,6 +94,8 @@ test('messages and stash references are validated', () => {
   assert.throws(() => validateMessage(''), /needs a message/)
   assert.throws(() => validateMessage('a'.repeat(5001)), /longer than 5000/)
   assert.equal(validateStashRef('stash@{12}'), 'stash@{12}')
+  assert.equal(validateStashRef('0'), 'stash@{0}')
+  assert.equal(validateStashRef('12'), 'stash@{12}')
   for (const bad of ['stash@{x}', 'HEAD', '', 'stash@{0}; rm -rf /']) {
     assert.throws(() => validateStashRef(bad), /unsafe stash reference/, `must refuse ${JSON.stringify(bad)}`)
   }
@@ -165,4 +168,16 @@ test('validateCwd rejects symlinks pointing to disallowed system paths', async (
   } finally {
     await fs.unlink(symlinkPath).catch(() => {})
   }
+})
+
+test('stashShow, stashApply, stashPop and stashDrop build valid stash steps', () => {
+  assert.deepEqual(buildAction('stashShow', { ref: 'stash@{0}' }).steps, [['stash', 'show', '-p', 'stash@{0}']])
+  assert.deepEqual(buildAction('stash_show', { ref: '0' }).steps, [['stash', 'show', '-p', 'stash@{0}']])
+  assert.deepEqual(buildAction('stashApply', { ref: '0' }).steps, [['stash', 'apply', 'stash@{0}']])
+  assert.deepEqual(buildAction('stash_apply', { ref: 'stash@{1}' }).steps, [['stash', 'apply', 'stash@{1}']])
+  assert.deepEqual(buildAction('stashPop', { ref: 'stash@{0}' }).steps, [['stash', 'pop', 'stash@{0}']])
+  assert.deepEqual(buildAction('stash_pop', { ref: '0' }).steps, [['stash', 'pop', 'stash@{0}']])
+  assert.deepEqual(buildAction('stashDrop', { ref: 'stash@{0}', confirm: true }).steps, [['stash', 'drop', 'stash@{0}']])
+  assert.deepEqual(buildAction('stash_drop', { ref: '0', confirm: true }).steps, [['stash', 'drop', 'stash@{0}']])
+  assert.throws(() => buildAction('stash_drop', { ref: '0' }), /without confirm: true/)
 })
