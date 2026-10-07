@@ -9,6 +9,7 @@ import {
   validateMessage,
   validateStashRef,
   validateCwd,
+  validatePatch,
   ACTIONS,
   OPERATION_VERBS,
 } from '../lib/scm-write.js'
@@ -215,4 +216,44 @@ test('resolveConflict builds add step and resolveConflictFile resolves file on d
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
   }
+})
+
+test('validatePatch and stage_patch / unstage_patch actions validate input and build git apply steps', () => {
+  const patch = `diff --git a/a.js b/a.js
+--- a/a.js
++++ b/a.js
+@@ -1,2 +1,2 @@
+-old
++new
+`
+  assert.equal(validatePatch(patch), patch)
+  assert.throws(() => validatePatch(''), /patch cannot be empty/)
+  assert.throws(() => validatePatch('plain text without diff markers'), /missing diff hunk markers/)
+  assert.throws(() => validatePatch('a\u0000b'), /patch with a NUL byte/)
+
+  // stage_patch
+  const stageRes = buildAction('stage_patch', { patch })
+  assert.equal(stageRes.action, 'stage_patch')
+  assert.deepEqual(stageRes.steps, [['apply', '--cached', '-']])
+  assert.equal(stageRes.input, patch)
+  assert.equal(stageRes.destructive, false)
+
+  // stagePatch alias
+  const stageAlias = buildAction('stagePatch', { patch })
+  assert.equal(stageAlias.action, 'stage_patch')
+  assert.deepEqual(stageAlias.steps, [['apply', '--cached', '-']])
+  assert.equal(stageAlias.input, patch)
+
+  // unstage_patch
+  const unstageRes = buildAction('unstage_patch', { patch })
+  assert.equal(unstageRes.action, 'unstage_patch')
+  assert.deepEqual(unstageRes.steps, [['apply', '--cached', '--reverse', '-']])
+  assert.equal(unstageRes.input, patch)
+  assert.equal(unstageRes.destructive, false)
+
+  // unstagePatch alias
+  const unstageAlias = buildAction('unstagePatch', { patch })
+  assert.equal(unstageAlias.action, 'unstage_patch')
+  assert.deepEqual(unstageAlias.steps, [['apply', '--cached', '--reverse', '-']])
+  assert.equal(unstageAlias.input, patch)
 })

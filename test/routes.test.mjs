@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { Readable } from 'node:stream'
 
-import { registerRoutes, STATUS_PATH, SCM_PATH, PANEL_PATH, MIRROR_PATH, MATRIX_PATH } from '../lib/routes.js'
+import { registerRoutes, STATUS_PATH, SCM_PATH, PANEL_PATH, MIRROR_PATH, MATRIX_PATH, GRAPH_PATH, EVENTS_PATH } from '../lib/routes.js'
 
 function createHarness() {
   const routes = new Map()
@@ -319,4 +319,90 @@ test('SCM_PATH detects file conflicts on GET and resolves them via resolveConfli
   assert.equal(resolvedContent, 'h\ntheirs\nf')
 
   await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
+})
+
+test('GRAPH_PATH returns git commit graph data for trusted caller', async () => {
+  const { ctx, routes } = createHarness()
+  registerRoutes(ctx, {
+    makeGitRunner: () => async (args) => {
+      if (args.includes('--graph')) {
+        return {
+          code: 0,
+          stdout: '* 1234567| (HEAD -> main)|test commit|alice|2026-10-07\n',
+          stderr: '',
+        }
+      }
+      return { code: 0, stdout: '' }
+    },
+  })
+
+  const res = mockResponse()
+  await routes.get(GRAPH_PATH)({
+    method: 'GET',
+    url: `${GRAPH_PATH}?limit=10`,
+    socket: { remoteAddress: '127.0.0.1' },
+    headers: {},
+  }, res)
+
+  assert.equal(res.result().status, 200)
+  assert.equal(res.result().json.ok, true)
+  assert.equal(res.result().json.limit, 10)
+  assert.equal(res.result().json.entries.length, 1)
+  assert.equal(res.result().json.entries[0].hash, '1234567')
+  assert.equal(res.result().json.entries[0].subject, 'test commit')
+})
+
+test('SCM_PATH GET returns hunks for file diff and POST stage_patch passes input to git', async () => {
+  const { ctx, routes } = createHarness()
+  let capturedInput = null
+  let capturedArgv = null
+  registerRoutes(ctx, {
+    makeGitRunner: () => async (argv, opts) => {
+      if (argv.includes('diff')) {
+        return {
+          code: 0,
+          stdout: `diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1,2 +1,2 @@\n-old\n+new\n`,
+          stderr: '',
+        }
+      }
+      if (argv.includes('apply')) {
+        capturedArgv = argv
+        capturedInput = opts?.input
+        return { code: 0, stdout: '', stderr: '' }
+      }
+      return { code: 0, stdout: '', stderr: '' }
+    },
+  })
+
+  // 1. GET file diff returns hunks
+  const getRes = mockResponse()
+  await routes.get(SCM_PATH)({
+    method: 'GET',
+    url: `${SCM_PATH}?file=a.txt`,
+    socket: { remoteAddress: '127.0.0.1' },
+    headers: {},
+  }, getRes)
+
+  assert.equal(getRes.result().status, 200)
+  assert.equal(getRes.result().json.hunks.length, 1)
+  assert.match(getRes.result().json.hunks[0].patch, /\+new/)
+
+  // 2. POST stage_patch passes patch string to git stdin
+  const patchContent = getRes.result().json.hunks[0].patch
+  const postReq = Readable.from([Buffer.from(JSON.stringify({
+    action: 'stage_patch',
+    args: { patch: patchContent },
+  }))])
+  postReq.method = 'POST'
+  postReq.url = SCM_PATH
+  postReq.socket = { remoteAddress: '127.0.0.1' }
+  postReq.headers = { 'sec-fetch-site': 'same-origin' }
+
+  const postRes = mockResponse()
+  await routes.get(SCM_PATH)(postReq, postRes)
+
+  assert.equal(postRes.result().status, 200)
+  assert.equal(postRes.result().json.ok, true)
+  assert.deepEqual(capturedArgv, ['apply', '--cached', '-'])
+  assert.equal(capturedInput, patchContent)
 })
