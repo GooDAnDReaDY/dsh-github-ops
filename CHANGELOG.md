@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0
+
+### Features
+- **Organization Repositories Status Matrix** (#48): Added `gh_matrix_status` tool and dedicated `/dsh-github-ops/matrix` route (plus `what=matrix` in sidebar panel) collecting releases/tags, npm published versions, CI workflow run status, and open issue counts with in-memory TTL caching and graceful degradation. Added interactive Organization Matrix mode and table with status badges in the sidebar panel.
+- **External GitHub Issues Triage to Gitea Registry** (#66): Added `gh_triage_external_issues` tool scanning public GitHub repositories for open issues, cross-referencing against Gitea issue tracker via issue URLs and markers, generating canonical 5-section draft issues with priority and type labels, and providing optional automated creation via `sync: true` and `confirm: true`.
+- **Visual Merge Conflict Resolution in Source Control** (#49): Added merge conflict hunk parsing (`parseConflictBlocks`, `hasConflicts`, `resolveConflictContent`) supporting both 2-way and diff3 markers. Added `resolveConflict` action with auto-staging (`git add`), conflict detection in SCM route, and interactive diff banner in the Web UI with one-click actions: "Accept Current (Ours)", "Accept Incoming (Theirs)", and "Accept Both".
+
 ## 0.4.1
 
 ### Fixed
