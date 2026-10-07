@@ -188,3 +188,29 @@ test('SCM_PATH returns diff for stash parameter', async () => {
   }, badRes)
   assert.equal(badRes.result().status, 400)
 })
+
+test('SCM_PATH survives cordis context throwing on undeclared cwd access', async () => {
+  const { ctx, routes } = createHarness()
+  // Mock cordis throwing on ctx.cwd
+  Object.defineProperty(ctx, 'cwd', {
+    get() {
+      throw new Error('cannot get property "cwd" without inject')
+    },
+    configurable: true,
+  })
+
+  registerRoutes(ctx, {
+    makeGitRunner: () => async () => ({ code: 1, stdout: '', stderr: 'not a git repo' }),
+  })
+
+  const res = mockResponse()
+  await routes.get(SCM_PATH)({
+    method: 'GET',
+    url: SCM_PATH,
+    socket: { remoteAddress: '127.0.0.1' },
+    headers: {},
+  }, res)
+
+  assert.equal(res.result().status, 200)
+  assert.equal(res.result().json.isRepository, false)
+})
