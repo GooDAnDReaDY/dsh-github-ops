@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+### Features
+- **Integrated GitHub Mirror Status Inspector & Sync** (#64): Added `gh_mirror_status` and `gh_mirror_sync` tools, dedicated HTTP route `GET|POST /dsh-github-ops/mirror`, and an interactive Mirror inspection block in the Source Control Web UI for real-time tracking of ahead/behind commits, unpushed release tags, and automated sanitization leak checks.
+- **Canonical AGENTS.md PR Summary Generator** (#68): Added `gh_generate_pr_summary` tool analyzing commits and git diffs against base branch to generate complete 5-section PR descriptions (Context & Problem, Root Cause, What Was Done, Impact & Limitations, Verification, Refs) strictly conforming to repository standards.
+- **Automated Pull Request Code Suggestions Application** (#46): Added `pr_apply_suggestion` tool for parsing ````suggestion```` markdown blocks from review comments, validating against outdated context, applying hunk line replacements, and committing directly to the PR branch citing the reviewer with `confirm: true` safety.
+- **Cryptographic Commit Signature Verification** (#73): Added `gh_pull_commit_signatures` tool auditing GPG/SSH commit signatures across PR commits. Integrated signature verification into `reviewPull` (attention finding) and added `requireSigned: true` enforcement in `gh_pull_merge`.
+
 ## 0.3.1
 
 ### Fixed
