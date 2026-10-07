@@ -152,3 +152,39 @@ test('SCM write route rejects cross-site requests with 403', async () => {
   await routes.get(SCM_PATH)(req, res)
   assert.equal(res.result().status, 403)
 })
+
+test('SCM_PATH returns diff for stash parameter', async () => {
+  const { ctx, routes } = createHarness()
+  const calls = []
+  registerRoutes(ctx, {
+    makeGitRunner: () => async (args) => {
+      calls.push(args)
+      if (args[0] === 'stash' && args[1] === 'show') {
+        return { code: 0, stdout: 'diff --git a/foo.txt b/foo.txt\n+stash content' }
+      }
+      return { code: 0, stdout: '' }
+    },
+  })
+
+  const res = mockResponse()
+  await routes.get(SCM_PATH)({
+    method: 'GET',
+    url: `${SCM_PATH}?stash=stash@{0}`,
+    socket: { remoteAddress: '127.0.0.1' },
+    headers: {},
+  }, res)
+
+  assert.equal(res.result().status, 200)
+  assert.equal(res.result().json.stash, 'stash@{0}')
+  assert.match(res.result().json.diff, /diff --git/)
+  assert.deepEqual(calls[0], ['stash', 'show', '-p', 'stash@{0}'])
+
+  const badRes = mockResponse()
+  await routes.get(SCM_PATH)({
+    method: 'GET',
+    url: `${SCM_PATH}?stash=bad_ref`,
+    socket: { remoteAddress: '127.0.0.1' },
+    headers: {},
+  }, badRes)
+  assert.equal(badRes.result().status, 400)
+})

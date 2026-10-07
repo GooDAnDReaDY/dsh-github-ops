@@ -293,4 +293,5 @@ test('getJobLogSummary fetches job log, strips ANSI and returns failure context'
   assert.equal(summary.failedStep.name, 'test')
   assert.ok(summary.lines.includes('Error in step 3'))
   assert.ok(summary.lines.includes('token: [REDACTED_TOKEN]'))
+  assert.ok(summary.errorHighlights.some((h) => h.includes('Error in step 3')))
 })
