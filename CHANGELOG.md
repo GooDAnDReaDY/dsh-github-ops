@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+### Features
+- **Token Capability Diagnostics & Scopes Audit** (#72): Introduced `gh_token_audit` tool (`auditTokenScopes`) providing automated token permission checks (classic vs fine-grained) and early capability warnings for missing repository, workflow, packages, or org administration scopes. Added `scopeWarnings` in `/status` payload.
+- **Selective CI Failure Log Inspector** (#67): Added `gh_run_failure_inspector` tool with regex-based failure step isolation, automatic ANSI sequence stripping, secret token masking, and highlighted failure summaries without needing to download full workflow artifact archives.
+- **Interactive Stash Management & Diff Preview** (#70): Added stash diff preview endpoint (`GET /scm?stash=stash@{N}`) and full lifecycle actions (`stashShow`, `stashApply`, `stashPop`, `stashDrop` with confirmation safety). Updated Source Control UI with quick diff viewer and stash operation buttons.
+
 ## 0.2.12
 
 ### Security
