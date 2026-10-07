@@ -6,10 +6,13 @@ import {
   allowlistFromManifest,
   planMirror,
   publishMirror,
+  mirrorStatus,
+  syncMirror,
   validateRemote,
   validateBranchName,
   DEFAULT_FORBIDDEN,
 } from '../lib/tools/mirror.js'
+import { registerMirrorTools } from '../lib/tools/register-mirror.js'
 
 const manifest = { name: 'x', files: ['lib', 'cordis.patch.yml', 'README.md', 'LICENSE'] }
 
@@ -190,4 +193,94 @@ test('publishMirror validates mirror remote and branch names against option inje
     () => publishMirror({ git, cwd: '/repo', ref: '-c' }),
     /invalid source ref/
   )
+})
+
+test('mirrorStatus reports inSync: true when mirror head recorded source sha', async () => {
+  const git = fakeGit([
+    ['rev-parse origin/main', ok('abcdef1234567890abcdef1234567890abcdef12\n')],
+    ['rev-parse github/main', ok('999888777\n')],
+    ['log -1 --format=%B github/main', ok('chore(publish): sanitized tree from abcdef12\n')],
+    ['tag -l', ok('v1.0.0\n')],
+    ['ls-remote --tags github', ok('hash refs/tags/v1.0.0\n')],
+    ['show origin/main:package.json', ok(JSON.stringify(manifest))],
+    ['ls-tree -r --name-only origin/main', ok('package.json\nREADME.md\nlib/index.js\n')],
+  ])
+  const status = await mirrorStatus({ git, cwd: '/repo' })
+  assert.equal(status.inSync, true)
+  assert.equal(status.ahead, 0)
+  assert.equal(status.behind, 0)
+  assert.equal(status.unpushedTags.length, 0)
+  assert.equal(status.leakCheck.passed, true)
+})
+
+test('mirrorStatus detects unpushed tags and ahead count when mirror is behind', async () => {
+  const git = fakeGit([
+    ['rev-parse origin/main', ok('abcdef1234567890abcdef1234567890abcdef12\n')],
+    ['rev-parse github/main', ok('999888777\n')],
+    ['log -1 --format=%B github/main', ok('chore(publish): sanitized tree from 11223344\n')],
+    ['rev-list --count 11223344..origin/main', ok('3\n')],
+    ['tag -l', ok('v1.0.0\nv1.1.0\n')],
+    ['ls-remote --tags github', ok('hash refs/tags/v1.0.0\n')],
+    ['show origin/main:package.json', ok(JSON.stringify(manifest))],
+    ['ls-tree -r --name-only origin/main', ok('package.json\nREADME.md\nlib/index.js\n')],
+  ])
+  const status = await mirrorStatus({ git, cwd: '/repo' })
+  assert.equal(status.inSync, false)
+  assert.equal(status.ahead, 3)
+  assert.deepEqual(status.unpushedTags, ['v1.1.0'])
+  assert.equal(status.leakCheck.passed, true)
+})
+
+test('mirrorStatus reports leakCheck failure when required file missing', async () => {
+  const git = fakeGit([
+    ['rev-parse origin/main', ok('abcdef12\n')],
+    ['rev-parse github/main', ok('999888777\n')],
+    ['log -1 --format=%B github/main', ok('')],
+    ['rev-list --count github/main..origin/main', ok('1\n')],
+    ['rev-list --count origin/main..github/main', ok('0\n')],
+    ['tag -l', ok('')],
+    ['show origin/main:package.json', ok(JSON.stringify(manifest))],
+    ['ls-tree -r --name-only origin/main', ok('package.json\n')],
+  ])
+  const status = await mirrorStatus({ git, cwd: '/repo' })
+  assert.equal(status.inSync, false)
+  assert.equal(status.leakCheck.passed, false)
+  assert.match(status.leakCheck.refused, /required product files are missing/)
+})
+
+test('syncMirror publishes mirror and pushes unpushed tags', async () => {
+  const git = fakeGit([
+    ['rev-parse origin/main', ok('abcdef1234567890\n')],
+    ['rev-parse github/main', ok('mirrorhead123\n')],
+    ['log -1 --format=%B github/main', ok('chore(publish): sanitized tree from old1234\n')],
+    ['rev-list --count old1234..origin/main', ok('2\n')],
+    ['tag -l', ok('v1.0.0\nv1.1.0\n')],
+    ['ls-remote --tags github', ok('hash refs/tags/v1.0.0\n')],
+    ['show origin/main:package.json', ok(JSON.stringify(manifest))],
+    ['ls-tree -r --name-only origin/main', ok('package.json\nREADME.md\nlib/index.js\n')],
+    [/^read-tree/, ok('')],
+    [/^rev-parse origin\/main:/, ok('blobsha\n')],
+    [/^update-index/, ok('')],
+    [/^write-tree/, ok('treesha\n')],
+    [/^commit-tree/, ok('newmirrorcommit\n')],
+    [/^push github newmirrorcommit:refs\/heads\/main/, ok('')],
+    [/^push github refs\/tags\/v1.1.0:refs\/tags\/v1.1.0/, ok('')],
+  ])
+  const result = await syncMirror({ git, cwd: '/repo', syncTags: true })
+  assert.equal(result.synced, true)
+  assert.equal(result.publishResult.commit, 'newmirrorcommit')
+  assert.deepEqual(result.pushedTags, ['v1.1.0'])
+})
+
+test('registerMirrorTools registers gh_mirror_status and gh_mirror_sync', async () => {
+  const tools = {}
+  registerMirrorTools({
+    tool: (name, desc, schema, fn) => { tools[name] = { desc, schema, fn } },
+    git: fakeGit([]),
+    defaultCwd: () => '/repo',
+  })
+  assert.ok(tools.gh_mirror_status)
+  assert.ok(tools.gh_mirror_sync)
+  assert.ok(tools.gh_mirror_check)
+  assert.ok(tools.gh_mirror_publish)
 })
