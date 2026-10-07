@@ -10,6 +10,9 @@ import {
   parseWorktrees,
   scmPayload,
   mergeStateFrom,
+  hasConflicts,
+  parseConflictBlocks,
+  resolveConflictContent,
 } from '../lib/scm.js'
 
 test('parseStatusLine understands plain, renamed and quoted paths', () => {
@@ -134,4 +137,99 @@ prunable gitdir file points to non-existent location
 
   const empty = parseWorktrees('')
   assert.deepEqual(empty, [])
+})
+
+
+test('hasConflicts identifies merge conflict markers accurately', () => {
+  assert.equal(hasConflicts('const a = 1;'), false)
+  assert.equal(hasConflicts('<<<<<<< HEAD\na\n=======\nb\n>>>>>>> branch'), true)
+  assert.equal(hasConflicts('<<<<<<< HEAD\na\n>>>>>>> branch'), false)
+})
+
+test('parseConflictBlocks parses single and multiple conflict hunks with diff3 support', () => {
+  const content = [
+    'line 1',
+    '<<<<<<< HEAD',
+    'const x = 1;',
+    '||||||| base',
+    'const x = 0;',
+    '=======',
+    'const x = 2;',
+    '>>>>>>> feature/add-x',
+    'line 9',
+    '<<<<<<< HEAD',
+    'const y = "ours";',
+    '=======',
+    'const y = "theirs";',
+    '>>>>>>> feature/add-y',
+    'line 16',
+  ].join('\n')
+
+  const blocks = parseConflictBlocks(content)
+  assert.equal(blocks.length, 2)
+
+  // Block 0
+  assert.equal(blocks[0].index, 0)
+  assert.equal(blocks[0].startLine, 2)
+  assert.equal(blocks[0].endLine, 8)
+  assert.equal(blocks[0].oursHeader, 'HEAD')
+  assert.equal(blocks[0].theirsHeader, 'feature/add-x')
+  assert.equal(blocks[0].baseHeader, 'base')
+  assert.equal(blocks[0].ours, 'const x = 1;')
+  assert.equal(blocks[0].base, 'const x = 0;')
+  assert.equal(blocks[0].theirs, 'const x = 2;')
+  assert.equal(blocks[0].both, 'const x = 1;\nconst x = 2;')
+
+  // Block 1
+  assert.equal(blocks[1].index, 1)
+  assert.equal(blocks[1].startLine, 10)
+  assert.equal(blocks[1].endLine, 14)
+  assert.equal(blocks[1].oursHeader, 'HEAD')
+  assert.equal(blocks[1].theirsHeader, 'feature/add-y')
+  assert.equal(blocks[1].base, undefined)
+  assert.equal(blocks[1].ours, 'const y = "ours";')
+  assert.equal(blocks[1].theirs, 'const y = "theirs";')
+})
+
+test('resolveConflictContent cleanly resolves conflict markers with ours, theirs or both', () => {
+  const content = [
+    'header',
+    '<<<<<<< HEAD',
+    'our code',
+    '=======',
+    'their code',
+    '>>>>>>> incoming',
+    'footer',
+  ].join('\n')
+
+  const ours = resolveConflictContent(content, 'ours')
+  assert.equal(ours, 'header\nour code\nfooter')
+
+  const theirs = resolveConflictContent(content, 'theirs')
+  assert.equal(theirs, 'header\ntheir code\nfooter')
+
+  const both = resolveConflictContent(content, 'both')
+  assert.equal(both, 'header\nour code\ntheir code\nfooter')
+})
+
+test('resolveConflictContent supports per-block resolution', () => {
+  const content = [
+    '<<<<<<< HEAD',
+    '1-ours',
+    '=======',
+    '1-theirs',
+    '>>>>>>> incoming',
+    'mid',
+    '<<<<<<< HEAD',
+    '2-ours',
+    '=======',
+    '2-theirs',
+    '>>>>>>> incoming',
+  ].join('\n')
+
+  const resolved = resolveConflictContent(content, [
+    { blockIndex: 0, choice: 'theirs' },
+    { blockIndex: 1, choice: 'ours' },
+  ])
+  assert.equal(resolved, '1-theirs\nmid\n2-ours')
 })

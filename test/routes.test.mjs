@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { Readable } from 'node:stream'
 
-import { registerRoutes, STATUS_PATH, SCM_PATH, PANEL_PATH, MIRROR_PATH } from '../lib/routes.js'
+import { registerRoutes, STATUS_PATH, SCM_PATH, PANEL_PATH, MIRROR_PATH, MATRIX_PATH } from '../lib/routes.js'
 
 function createHarness() {
   const routes = new Map()
@@ -214,4 +214,109 @@ test('SCM_PATH survives cordis context throwing on undeclared cwd access', async
 
   assert.equal(res.result().status, 200)
   assert.equal(res.result().json.isRepository, false)
+})
+
+
+test('MATRIX_PATH and PANEL_PATH what=matrix answer matrix data for trusted caller', async () => {
+  const { ctx, routes } = createHarness()
+  const fakeClient = {
+    get: async (path) => {
+      if (path.startsWith('/orgs/myorg/repos')) {
+        return { data: [{ name: 'proj1', full_name: 'myorg/proj1', owner: { login: 'myorg' } }] }
+      }
+      if (path.includes('releases/latest')) {
+        return { data: { tag_name: 'v1.0.0', published_at: '2026-01-01' } }
+      }
+      return { data: [] }
+    },
+  }
+  registerRoutes(ctx, {
+    resolveToken: async () => ({ value: 'ghp_fake', source: 'test' }),
+    client: async () => fakeClient,
+    liveConfig: () => ({ owner: 'myorg' }),
+  })
+
+  // Test MATRIX_PATH
+  const res1 = mockResponse()
+  await routes.get(MATRIX_PATH)({
+    method: 'GET',
+    url: `${MATRIX_PATH}?org=myorg`,
+    socket: { remoteAddress: '127.0.0.1' },
+    headers: {},
+  }, res1)
+  assert.equal(res1.result().status, 200)
+  assert.equal(res1.result().json.ok, true)
+  assert.equal(res1.result().json.org, 'myorg')
+  assert.equal(res1.result().json.totalRepos, 1)
+
+  // Test PANEL_PATH?what=matrix
+  const res2 = mockResponse()
+  await routes.get(PANEL_PATH)({
+    method: 'GET',
+    url: `${PANEL_PATH}?what=matrix&org=myorg`,
+    socket: { remoteAddress: '127.0.0.1' },
+    headers: {},
+  }, res2)
+  assert.equal(res2.result().status, 200)
+  assert.equal(res2.result().json.configured, true)
+  assert.equal(res2.result().json.org, 'myorg')
+})
+
+
+test('SCM_PATH detects file conflicts on GET and resolves them via resolveConflict POST', async () => {
+  const fs = await import('node:fs/promises')
+  const os = await import('node:os')
+  const path = await import('node:path')
+
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-scm-route-'))
+  const conflictFile = path.join(tmpDir, 'conflict.txt')
+  await fs.writeFile(conflictFile, 'h\n<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> inc\nf', 'utf8')
+
+  const { ctx, routes } = createHarness()
+  const executed = []
+  registerRoutes(ctx, {
+    makeGitRunner: () => async (argv, opts) => {
+      executed.push({ argv, opts })
+      return { code: 0, stdout: 'diff output', stderr: '' }
+    },
+  })
+
+  // 1. GET with file parameter detects conflicts
+  const getRes = mockResponse()
+  await routes.get(SCM_PATH)({
+    method: 'GET',
+    url: `${SCM_PATH}?file=conflict.txt&cwd=${encodeURIComponent(tmpDir)}`,
+    socket: { remoteAddress: '127.0.0.1' },
+    headers: {},
+  }, getRes)
+
+  assert.equal(getRes.result().status, 200)
+  assert.equal(getRes.result().json.hasConflicts, true)
+  assert.equal(getRes.result().json.conflicts.length, 1)
+  assert.equal(getRes.result().json.conflicts[0].ours, 'ours')
+
+  // 2. POST resolveConflict resolves file and runs git add
+  const postReq = Readable.from([Buffer.from(JSON.stringify({
+    action: 'resolveConflict',
+    path: 'conflict.txt',
+    choice: 'theirs',
+    cwd: tmpDir,
+  }))])
+  postReq.method = 'POST'
+  postReq.url = `${SCM_PATH}?cwd=${encodeURIComponent(tmpDir)}`
+  postReq.socket = { remoteAddress: '127.0.0.1' }
+  postReq.headers = { 'sec-fetch-site': 'same-origin' }
+
+  const postRes = mockResponse()
+  await routes.get(SCM_PATH)(postReq, postRes)
+
+  assert.equal(postRes.result().status, 200)
+  assert.equal(postRes.result().json.ok, true)
+  assert.equal(postRes.result().json.action, 'resolveConflict')
+
+  // File on disk was resolved
+  const resolvedContent = await fs.readFile(conflictFile, 'utf8')
+  assert.equal(resolvedContent, 'h\ntheirs\nf')
+
+  await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
 })

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 
 import {
   buildAction,
+  resolveConflictFile,
   validateBranch,
   validatePath,
   validateMessage,
@@ -33,6 +34,7 @@ test('every action builds argv arrays and never a shell string', () => {
       worktreeRemove: { path: '/tmp/wt', confirm: true },
       continue: { verb: 'merge' },
       abort: { verb: 'rebase', confirm: true },
+      resolveConflict: { path: 'a.js', choice: 'ours' },
     }[action]
     const built = buildAction(action, args)
     assert.equal(built.action, action)
@@ -180,4 +182,37 @@ test('stashShow, stashApply, stashPop and stashDrop build valid stash steps', ()
   assert.deepEqual(buildAction('stashDrop', { ref: 'stash@{0}', confirm: true }).steps, [['stash', 'drop', 'stash@{0}']])
   assert.deepEqual(buildAction('stash_drop', { ref: '0', confirm: true }).steps, [['stash', 'drop', 'stash@{0}']])
   assert.throws(() => buildAction('stash_drop', { ref: '0' }), /without confirm: true/)
+})
+
+
+test('resolveConflict builds add step and resolveConflictFile resolves file on disk', async () => {
+  const fs = await import('node:fs/promises')
+  const os = await import('node:os')
+  const path = await import('node:path')
+
+  const built = buildAction('resolveConflict', { path: 'file.txt', choice: 'ours' })
+  assert.equal(built.action, 'resolveConflict')
+  assert.deepEqual(built.steps, [['add', '--', 'file.txt']])
+
+  // Bad choice throws
+  assert.throws(() => buildAction('resolveConflict', { path: 'file.txt', choice: 'invalid' }), /invalid conflict resolution choice/)
+
+  // Test resolveConflictFile
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-scm-conflict-'))
+  try {
+    const filePath = path.join(tmpDir, 'conflict.js')
+    await fs.writeFile(filePath, 'header\n<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> incoming\nfooter', 'utf8')
+
+    const res = resolveConflictFile({ cwd: tmpDir, path: 'conflict.js', choice: 'theirs' })
+    assert.equal(res.resolved, true)
+    assert.equal(res.choice, 'theirs')
+
+    const after = await fs.readFile(filePath, 'utf8')
+    assert.equal(after, 'header\ntheirs\nfooter')
+
+    // File without conflicts throws
+    assert.throws(() => resolveConflictFile({ cwd: tmpDir, path: 'conflict.js', choice: 'ours' }), /no merge conflict markers found/)
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
+  }
 })
