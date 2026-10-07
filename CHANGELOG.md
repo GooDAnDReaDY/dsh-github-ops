@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1
+
+### Fixed
+- **Cordis Context CWD Guard & SCM Route Exception Shield** (#70, #76): Added `safeCwd(ctx)` helper across routes and tools to prevent `Error: cannot get property "cwd" without inject` when accessing undeclared context properties in Cordis 8+ / DSH 0.2 runtimes. Wrapped SCM HTTP route handler in top-level error handling.
+
 ## 0.3.0
 
 ### Features
