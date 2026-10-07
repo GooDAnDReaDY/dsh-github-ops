@@ -16,6 +16,7 @@ import {
   resolveReviewThread,
   parseSuggestionBlock,
   applySuggestion,
+  getPullCommitSignatures,
 } from '../lib/tools/pulls.js'
 
 function clientDouble(routes) {
@@ -403,7 +404,91 @@ test('applySuggestion refuses without confirm, on closed PR or when comment is o
     /comment #502 is outdated/
   )
 })
-test('registerCollabTools registers pr_apply_suggestion', () => {
+
+test('getPullCommitSignatures audits PR commits and flags unverified commits', async () => {
+  const client = clientDouble([
+    ['/repos/o/r/pulls/12/commits', [
+      {
+        sha: '1111111111111111111111111111111111111111',
+        commit: { author: { name: 'Alice' }, verification: { verified: true, reason: 'valid', signature: 'sig' } },
+      },
+      {
+        sha: '2222222222222222222222222222222222222222',
+        commit: { author: { name: 'Bob' }, verification: { verified: false, reason: 'unsigned' } },
+      },
+    ]],
+  ])
+
+  const res = await getPullCommitSignatures(client, { owner: 'o', repo: 'r', number: 12 })
+  assert.equal(res.pullNumber, 12)
+  assert.equal(res.totalCommits, 2)
+  assert.equal(res.allVerified, false)
+  assert.equal(res.unverifiedCount, 1)
+  assert.equal(res.unverifiedCommits[0].shortSha, '2222222')
+  assert.match(res.warning, /contains 1 unverified commit/)
+})
+
+test('getPullCommitSignatures reports allVerified: true when all commits have verified signatures', async () => {
+  const client = clientDouble([
+    ['/repos/o/r/pulls/12/commits', [
+      {
+        sha: '1111111111111111111111111111111111111111',
+        commit: { author: { name: 'Alice' }, verification: { verified: true, reason: 'valid', signature: 'sig' } },
+      },
+      {
+        sha: '3333333333333333333333333333333333333333',
+        commit: { author: { name: 'Alice' }, verification: { verified: true, reason: 'valid', signature: 'sig' } },
+      },
+    ]],
+  ])
+
+  const res = await getPullCommitSignatures(client, { owner: 'o', repo: 'r', number: 12 })
+  assert.equal(res.allVerified, true)
+  assert.equal(res.unverifiedCount, 0)
+  assert.equal(res.warning, null)
+})
+
+test('reviewPull includes signatures check and creates security attention finding when unverified', async () => {
+  const client = clientDouble([
+    ['/repos/o/r/pulls/12/files', [{ filename: 'lib/x.js', status: 'modified', patch: '+1' }]],
+    ['/repos/o/r/issues/12/comments', []],
+    ['/repos/o/r/pulls/12/commits', [
+      {
+        sha: '4444444444444444444444444444444444444444',
+        commit: { author: { name: 'Mallory' }, verification: { verified: false, reason: 'unsigned' } },
+      },
+    ]],
+    ['/repos/o/r/pulls/12', pull],
+    ['/repos/o/r/commits/feat/x/check-runs', { check_runs: [] }],
+    ['/repos/o/r/commits/feat/x/status', { state: 'success', statuses: [] }],
+  ])
+
+  const res = await reviewPull(client, { owner: 'o', repo: 'r', number: 12 })
+  assert.ok(res.signatures)
+  assert.equal(res.signatures.allVerified, false)
+  const secFinding = res.findings.find((f) => f.area === 'security' && f.level === 'attention')
+  assert.ok(secFinding, 'finding for unverified commit is surfaced')
+  assert.match(secFinding.detail, /contains 1 unverified commit/)
+})
+
+test('mergePull refuses when requireSigned: true and unverified commits exist', async () => {
+  const client = clientDouble([
+    ['/repos/o/r/pulls/12/commits', [
+      {
+        sha: '5555555555555555555555555555555555555555',
+        commit: { author: { name: 'Mallory' }, verification: { verified: false, reason: 'unsigned' } },
+      },
+    ]],
+    ['/repos/o/r/pulls/12/merge', { merged: true, sha: 'merge123' }],
+  ])
+
+  await assert.rejects(
+    () => mergePull(client, { owner: 'o', repo: 'r', number: 12, requireSigned: true }),
+    /cannot merge pull request #12: pull request #12 contains 1 unverified commit/
+  )
+})
+
+test('registerCollabTools registers pr_apply_suggestion and gh_pull_commit_signatures', () => {
   const tools = {}
   registerCollabTools({
     tool: (name, desc, schema, fn) => { tools[name] = { desc, schema, fn } },
@@ -414,4 +499,5 @@ test('registerCollabTools registers pr_apply_suggestion', () => {
     defaultCwd: () => '/repo',
   })
   assert.ok(tools.pr_apply_suggestion)
+  assert.ok(tools.gh_pull_commit_signatures)
 })
