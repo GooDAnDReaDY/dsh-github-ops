@@ -1,3 +1,4 @@
+import { registerCollabTools } from '../lib/tools/register-collab.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
@@ -13,6 +14,9 @@ import {
   listReviewThreads,
   replyReviewThread,
   resolveReviewThread,
+  parseSuggestionBlock,
+  applySuggestion,
+  getPullCommitSignatures,
 } from '../lib/tools/pulls.js'
 
 function clientDouble(routes) {
@@ -325,4 +329,175 @@ test('resolveReviewThread throws when mutation returns no thread', async () => {
     () => resolveReviewThread(client, { owner: 'o', repo: 'r', threadId: 'bad_thread', resolve: true }),
     /mutation returned no thread/
   )
+})
+
+test('parseSuggestionBlock extracts single, multi-line and empty suggestion blocks', () => {
+  assert.equal(parseSuggestionBlock('```suggestion\nconst x = 1\n```'), 'const x = 1')
+  assert.equal(parseSuggestionBlock('Text before\n```suggestion\nline1\nline2\n```\nText after'), 'line1\nline2')
+  assert.equal(parseSuggestionBlock('```suggestion\n```'), '')
+  assert.equal(parseSuggestionBlock('No suggestion here'), null)
+  assert.equal(parseSuggestionBlock(''), null)
+})
+
+test('applySuggestion modifies target file, commits with reviewer attribution and pushes', async () => {
+  const client = clientDouble([
+    ['/repos/o/r/pulls/12', { number: 12, state: 'open', head: { ref: 'main', sha: 'head1' } }],
+    ['/repos/o/r/pulls/comments/501', {
+      id: 501,
+      body: '```suggestion\nconst answer = 42\n```',
+      path: 'lib/ans.js',
+      line: 2,
+      user: { login: 'reviewer' },
+    }],
+    ['/repos/o/r/contents/lib/ans.js', {
+      content: Buffer.from('const question = 1\nconst answer = 0\nexport default answer\n').toString('base64'),
+    }],
+    ['/repos/o/r/git/ref/heads/main', { object: { sha: 'commit123' } }],
+    ['/repos/o/r/git/commits/commit123', { tree: { sha: 'tree123' } }],
+    ['/repos/o/r/git/blobs', { sha: 'blob123' }],
+    ['/repos/o/r/git/trees', { sha: 'newtree123' }],
+    ['/repos/o/r/git/commits', { sha: 'newcommit123' }],
+    ['/repos/o/r/git/refs/heads/main', {}],
+  ])
+
+  const res = await applySuggestion(client, {
+    owner: 'o',
+    repo: 'r',
+    pullNumber: 12,
+    commentId: 501,
+    confirm: true,
+  })
+
+  assert.equal(res.applied, true)
+  assert.equal(res.commit, 'newcommit123')
+  assert.equal(res.branch, 'main')
+  assert.deepEqual(res.files, ['lib/ans.js'])
+
+  const commitCall = client.calls.find((c) => c.method === 'POST' && c.path === '/repos/o/r/git/commits')
+  assert.ok(commitCall.body.message.includes('Apply suggestion from @reviewer'))
+  assert.ok(commitCall.body.message.includes('Refs: #12'))
+})
+
+test('applySuggestion refuses without confirm, on closed PR or when comment is outdated', async () => {
+  const client = clientDouble([
+    ['/repos/o/r/pulls/12', { number: 12, state: 'closed', head: { ref: 'feat/test' } }],
+    ['/repos/o/r/pulls/comments/501', { id: 501, body: '```suggestion\nx\n```', line: 1 }],
+  ])
+
+  await assert.rejects(
+    () => applySuggestion(client, { owner: 'o', repo: 'r', pullNumber: 12, commentId: 501, confirm: false }),
+    /refusing to apply suggestion without confirm: true/
+  )
+
+  await assert.rejects(
+    () => applySuggestion(client, { owner: 'o', repo: 'r', pullNumber: 12, commentId: 501, confirm: true }),
+    /pull request #12 is not open/
+  )
+
+  const outdatedClient = clientDouble([
+    ['/repos/o/r/pulls/13', { number: 13, state: 'open', head: { ref: 'feat/test' } }],
+    ['/repos/o/r/pulls/comments/502', { id: 502, body: '```suggestion\nx\n```', line: 1, position: null, original_position: 1 }],
+  ])
+
+  await assert.rejects(
+    () => applySuggestion(outdatedClient, { owner: 'o', repo: 'r', pullNumber: 13, commentId: 502, confirm: true }),
+    /comment #502 is outdated/
+  )
+})
+
+test('getPullCommitSignatures audits PR commits and flags unverified commits', async () => {
+  const client = clientDouble([
+    ['/repos/o/r/pulls/12/commits', [
+      {
+        sha: '1111111111111111111111111111111111111111',
+        commit: { author: { name: 'Alice' }, verification: { verified: true, reason: 'valid', signature: 'sig' } },
+      },
+      {
+        sha: '2222222222222222222222222222222222222222',
+        commit: { author: { name: 'Bob' }, verification: { verified: false, reason: 'unsigned' } },
+      },
+    ]],
+  ])
+
+  const res = await getPullCommitSignatures(client, { owner: 'o', repo: 'r', number: 12 })
+  assert.equal(res.pullNumber, 12)
+  assert.equal(res.totalCommits, 2)
+  assert.equal(res.allVerified, false)
+  assert.equal(res.unverifiedCount, 1)
+  assert.equal(res.unverifiedCommits[0].shortSha, '2222222')
+  assert.match(res.warning, /contains 1 unverified commit/)
+})
+
+test('getPullCommitSignatures reports allVerified: true when all commits have verified signatures', async () => {
+  const client = clientDouble([
+    ['/repos/o/r/pulls/12/commits', [
+      {
+        sha: '1111111111111111111111111111111111111111',
+        commit: { author: { name: 'Alice' }, verification: { verified: true, reason: 'valid', signature: 'sig' } },
+      },
+      {
+        sha: '3333333333333333333333333333333333333333',
+        commit: { author: { name: 'Alice' }, verification: { verified: true, reason: 'valid', signature: 'sig' } },
+      },
+    ]],
+  ])
+
+  const res = await getPullCommitSignatures(client, { owner: 'o', repo: 'r', number: 12 })
+  assert.equal(res.allVerified, true)
+  assert.equal(res.unverifiedCount, 0)
+  assert.equal(res.warning, null)
+})
+
+test('reviewPull includes signatures check and creates security attention finding when unverified', async () => {
+  const client = clientDouble([
+    ['/repos/o/r/pulls/12/files', [{ filename: 'lib/x.js', status: 'modified', patch: '+1' }]],
+    ['/repos/o/r/issues/12/comments', []],
+    ['/repos/o/r/pulls/12/commits', [
+      {
+        sha: '4444444444444444444444444444444444444444',
+        commit: { author: { name: 'Mallory' }, verification: { verified: false, reason: 'unsigned' } },
+      },
+    ]],
+    ['/repos/o/r/pulls/12', pull],
+    ['/repos/o/r/commits/feat/x/check-runs', { check_runs: [] }],
+    ['/repos/o/r/commits/feat/x/status', { state: 'success', statuses: [] }],
+  ])
+
+  const res = await reviewPull(client, { owner: 'o', repo: 'r', number: 12 })
+  assert.ok(res.signatures)
+  assert.equal(res.signatures.allVerified, false)
+  const secFinding = res.findings.find((f) => f.area === 'security' && f.level === 'attention')
+  assert.ok(secFinding, 'finding for unverified commit is surfaced')
+  assert.match(secFinding.detail, /contains 1 unverified commit/)
+})
+
+test('mergePull refuses when requireSigned: true and unverified commits exist', async () => {
+  const client = clientDouble([
+    ['/repos/o/r/pulls/12/commits', [
+      {
+        sha: '5555555555555555555555555555555555555555',
+        commit: { author: { name: 'Mallory' }, verification: { verified: false, reason: 'unsigned' } },
+      },
+    ]],
+    ['/repos/o/r/pulls/12/merge', { merged: true, sha: 'merge123' }],
+  ])
+
+  await assert.rejects(
+    () => mergePull(client, { owner: 'o', repo: 'r', number: 12, requireSigned: true }),
+    /cannot merge pull request #12: pull request #12 contains 1 unverified commit/
+  )
+})
+
+test('registerCollabTools registers pr_apply_suggestion and gh_pull_commit_signatures', () => {
+  const tools = {}
+  registerCollabTools({
+    tool: (name, desc, schema, fn) => { tools[name] = { desc, schema, fn } },
+    asRepo: (args, fn) => fn(args),
+    client: async () => ({}),
+    liveConfig: () => ({}),
+    git: async () => ({ code: 0 }),
+    defaultCwd: () => '/repo',
+  })
+  assert.ok(tools.pr_apply_suggestion)
+  assert.ok(tools.gh_pull_commit_signatures)
 })
