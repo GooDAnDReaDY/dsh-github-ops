@@ -13,6 +13,8 @@ import {
   hasConflicts,
   parseConflictBlocks,
   resolveConflictContent,
+  parseDiffHunks,
+  parseGitGraph,
 } from '../lib/scm.js'
 
 test('parseStatusLine understands plain, renamed and quoted paths', () => {
@@ -232,4 +234,89 @@ test('resolveConflictContent supports per-block resolution', () => {
     { blockIndex: 1, choice: 'ours' },
   ])
   assert.equal(resolved, '1-theirs\nmid\n2-ours')
+})
+
+test('parseDiffHunks splits unified diff into hunks with headers and patches', () => {
+  const sampleDiff = `diff --git a/file.js b/file.js
+index 1234567..89abcdef 100644
+--- a/file.js
++++ b/file.js
+@@ -1,5 +1,6 @@
+ const a = 1;
+-const b = 2;
++const b = 20;
++const c = 30;
+ const d = 4;
+ const e = 5;
+@@ -20,4 +21,4 @@
+ function test() {
+-  return false;
++  return true;
+ }
+`
+  const hunks = parseDiffHunks(sampleDiff)
+  assert.equal(hunks.length, 2)
+
+  // Hunk 1
+  assert.equal(hunks[0].oldStart, 1)
+  assert.equal(hunks[0].oldCount, 5)
+  assert.equal(hunks[0].newStart, 1)
+  assert.equal(hunks[0].newCount, 6)
+  assert.match(hunks[0].patch, /diff --git a\/file\.js b\/file\.js/)
+  assert.match(hunks[0].patch, /\+const b = 20;/)
+  assert.ok(hunks[0].lines.some((l) => l.type === 'add' && l.text === '+const b = 20;'))
+  assert.ok(hunks[0].lines.some((l) => l.type === 'del' && l.text === '-const b = 2;'))
+
+  // Hunk 2
+  assert.equal(hunks[1].oldStart, 20)
+  assert.equal(hunks[1].oldCount, 4)
+  assert.equal(hunks[1].newStart, 21)
+  assert.equal(hunks[1].newCount, 4)
+  assert.match(hunks[1].patch, /return true;/)
+
+  // Empty or invalid input
+  assert.deepEqual(parseDiffHunks(''), [])
+  assert.deepEqual(parseDiffHunks(null), [])
+})
+
+test('parseGitGraph correctly parses commit lines and ASCII connectors', () => {
+  const sampleLog = `* 6cbb565| (HEAD -> main, tag: v0.5.0, origin/main)|chore(release): bump version to 0.5.0|antigravity|2026-10-07
+* 97116ff||feat: merge conflict resolution|Antigravity IDE|2026-10-07
+|\\  
+| * 49859aa||feat(security): signature verification|Antigravity IDE|2026-10-07
+|/  
+* c6d5769| (tag: v0.3.1)|chore(release): bump version to 0.3.1|antigravity|2026-10-07`
+
+  const entries = parseGitGraph(sampleLog)
+  assert.equal(entries.length, 6)
+
+  // Entry 0 (commit with refs)
+  assert.equal(entries[0].isCommit, true)
+  assert.equal(entries[0].hash, '6cbb565')
+  assert.deepEqual(entries[0].refs, ['HEAD -> main', 'tag: v0.5.0', 'origin/main'])
+  assert.equal(entries[0].subject, 'chore(release): bump version to 0.5.0')
+  assert.equal(entries[0].author, 'antigravity')
+  assert.equal(entries[0].date, '2026-10-07')
+
+  // Entry 1 (commit without refs)
+  assert.equal(entries[1].isCommit, true)
+  assert.equal(entries[1].hash, '97116ff')
+  assert.deepEqual(entries[1].refs, [])
+
+  // Entry 2 (connector line)
+  assert.equal(entries[2].isCommit, false)
+  assert.equal(entries[2].hash, '')
+  assert.match(entries[2].graph, /\\/)
+
+  // Entry 3 (branched commit)
+  assert.equal(entries[3].isCommit, true)
+  assert.equal(entries[3].hash, '49859aa')
+  assert.match(entries[3].graph, /\*/)
+
+  // Entry 4 (merge connector)
+  assert.equal(entries[4].isCommit, false)
+
+  // Empty input
+  assert.deepEqual(parseGitGraph(''), [])
+  assert.deepEqual(parseGitGraph(null), [])
 })
