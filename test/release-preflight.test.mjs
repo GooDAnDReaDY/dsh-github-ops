@@ -174,3 +174,26 @@ test('runReleasePreflight rejects disallowed system cwd', async () => {
     /access to system directory "\/etc" is not allowed/,
   )
 })
+
+test('runReleasePreflight accepts Windows absolute drive paths without throwing', async () => {
+  const files = {
+    'package.json': JSON.stringify({ name: '@goodandready/dsh-github-ops', version: '0.6.0' }),
+    'cordis.patch.yml': 'name: "@goodandready/dsh-github-ops"',
+    'CHANGELOG.md': '## 0.6.0\n\n- Windows path fix',
+    'README.md': 'English documentation text that is sufficiently long and informative.',
+    'README.ru.md': 'Русская документация достаточной длины для прохождения проверки качества.',
+    'README.zh.md': '中文文档内容足够详细且长度超过五十个字符以满足预检查要求，支持完整的GitHub操作和自动化发布工作流测试。',
+  }
+  const packFiles = [{ path: 'package.json', size: 100 }]
+  const deps = makeMockDeps({ files, packFiles, testPasses: true })
+
+  // Forward slash Windows drive path
+  const res1 = await runReleasePreflight({ cwd: 'D:/work/repo' }, deps)
+  assert.equal(res1.ok, true)
+  assert.equal(res1.verdict, 'PASS')
+
+  // Backslash Windows drive path
+  const res2 = await runReleasePreflight({ cwd: 'D:\\work\\repo' }, deps)
+  assert.equal(res2.ok, true)
+  assert.equal(res2.verdict, 'PASS')
+})

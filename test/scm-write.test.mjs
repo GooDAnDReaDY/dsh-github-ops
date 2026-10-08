@@ -257,3 +257,21 @@ test('validatePatch and stage_patch / unstage_patch actions validate input and b
   assert.deepEqual(unstageAlias.steps, [['apply', '--cached', '--reverse', '-']])
   assert.equal(unstageAlias.input, patch)
 })
+
+test('validateCwd accepts Windows drive paths and UNC paths, rejecting Windows system roots', () => {
+  assert.equal(validateCwd('D:/work/repo'), 'D:/work/repo')
+  assert.equal(validateCwd('D:\\work\\repo'), 'D:\\work\\repo')
+  assert.equal(validateCwd('C:/projects/myapp'), 'C:/projects/myapp')
+  assert.equal(validateCwd('\\\\server\\share\\repo'), '\\\\server\\share\\repo')
+
+  // Reject Windows system directories and drive roots
+  assert.throws(() => validateCwd('C:/Windows'), /system directory/)
+  assert.throws(() => validateCwd('C:\\Windows\\System32'), /system directory/)
+  assert.throws(() => validateCwd('D:/'), /system drive root/)
+  assert.throws(() => validateCwd('C:'), /repository path must be absolute/)
+  assert.throws(() => validateCwd('C:\\'), /system drive root/)
+
+  // Reject relative Windows paths
+  assert.throws(() => validateCwd('work\\repo'), /repository path must be absolute/)
+  assert.throws(() => validateCwd('.\\repo'), /repository path must be absolute/)
+})

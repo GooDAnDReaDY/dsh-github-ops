@@ -406,3 +406,42 @@ test('SCM_PATH GET returns hunks for file diff and POST stage_patch passes input
   assert.deepEqual(capturedArgv, ['apply', '--cached', '-'])
   assert.equal(capturedInput, patchContent)
 })
+
+test('PANEL_PATH what=blob encodes path with encodeRepoPath and returns content without ReferenceError', async () => {
+  const { ctx, routes } = createHarness()
+  const capturedCalls = []
+  const fakeClient = {
+    get: async (path, opts) => {
+      capturedCalls.push({ path, opts })
+      if (path.includes('/contents/README.md')) {
+        return {
+          data: {
+            path: 'README.md',
+            size: 13,
+            content: Buffer.from('hello world\n').toString('base64'),
+          },
+        }
+      }
+      return { data: null }
+    },
+  }
+  registerRoutes(ctx, {
+    resolveToken: async () => ({ value: 'ghp_fake', source: 'test' }),
+    client: async () => fakeClient,
+    liveConfig: () => ({ owner: 'myorg', repo: 'myrepo' }),
+  })
+
+  const res = mockResponse()
+  await routes.get(PANEL_PATH)({
+    method: 'GET',
+    url: `${PANEL_PATH}?what=blob&repo=myorg/myrepo&path=README.md`,
+    socket: { remoteAddress: '127.0.0.1' },
+    headers: {},
+  }, res)
+
+  assert.equal(res.result().status, 200)
+  assert.equal(res.result().json.configured, true)
+  assert.equal(res.result().json.path, 'README.md')
+  assert.equal(res.result().json.text, 'hello world\n')
+  assert.equal(capturedCalls[0].path, '/repos/myorg/myrepo/contents/README.md')
+})
