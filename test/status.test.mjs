@@ -173,3 +173,50 @@ test('isTrustedRequest and isTrustedWriteRequest reject untrusted remote socket 
   assert.equal(isTrustedRequest(forged), false, 'remote address spoofing localhost must be rejected')
   assert.equal(isTrustedWriteRequest(forged), false, 'remote address spoofing write must be rejected')
 })
+
+test('isTrustedRequest and isTrustedWriteRequest accept DSH Desktop Electron requests (#111, #112)', () => {
+  // 1. Loopback socket with dsh-app:// referer without origin or sec-fetch-site (DSH Desktop forwarded request)
+  const desktopGet = request({
+    address: '127.0.0.1',
+    headers: { host: '127.0.0.1:3080', referer: 'dsh-app://app/' },
+  })
+  assert.equal(isTrustedRequest(desktopGet), true, 'desktop GET on loopback is trusted')
+
+  const desktopPost = request({
+    address: '127.0.0.1',
+    headers: { host: '127.0.0.1:3080', referer: 'dsh-app://app/' },
+  })
+  assert.equal(isTrustedWriteRequest(desktopPost), true, 'desktop POST on loopback is trusted')
+
+  // 2. IPv6 loopback with custom scheme referer
+  const desktopIpv6 = request({
+    address: '::1',
+    headers: { host: 'localhost:3080', referer: 'dsh-app://app/index.html' },
+  })
+  assert.equal(isTrustedRequest(desktopIpv6), true, 'desktop GET on ::1 is trusted')
+  assert.equal(isTrustedWriteRequest(desktopIpv6), true, 'desktop POST on ::1 is trusted')
+
+  // 3. Desktop request with host loopback without socket address
+  const desktopNoSocket = {
+    method: 'GET',
+    headers: { host: '127.0.0.1:3080', referer: 'dsh-app://app/' },
+  }
+  assert.equal(isTrustedRequest(desktopNoSocket), true, 'desktop GET with loopback host is trusted')
+  assert.equal(isTrustedWriteRequest(desktopNoSocket), true, 'desktop POST with loopback host is trusted')
+
+  // 4. Custom scheme referer from non-loopback remote IP must be rejected
+  const desktopRemote = request({
+    address: '192.168.1.50',
+    headers: { host: '192.168.1.111:3080', referer: 'dsh-app://app/' },
+  })
+  assert.equal(isTrustedRequest(desktopRemote), false, 'desktop referer from remote IP is rejected')
+  assert.equal(isTrustedWriteRequest(desktopRemote), false, 'desktop referer from remote IP is rejected for write')
+
+  // 5. Cross-site sec-fetch-site overrides custom referer and fails closed
+  const desktopCrossSite = request({
+    address: '127.0.0.1',
+    headers: { host: '127.0.0.1:3080', referer: 'dsh-app://app/', 'sec-fetch-site': 'cross-site' },
+  })
+  assert.equal(isTrustedRequest(desktopCrossSite), false, 'cross-site overrides custom scheme referer')
+  assert.equal(isTrustedWriteRequest(desktopCrossSite), false, 'cross-site overrides custom scheme referer on write')
+})
