@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
@@ -66,4 +67,13 @@ test('registerPluginUpdater registers endpoint and answers status and method res
   await route.handler({ method: 'POST', headers: {} }, res403)
   assert.equal(code, 403)
   assert.ok(jsonRes.error)
+})
+
+test('updater does not bypass minimumReleaseAge supply chain guard (#114)', () => {
+  const updaterSrc = fs.readFileSync(new URL('../lib/updater.js', import.meta.url), 'utf8')
+  assert.equal(
+    updaterSrc.includes('minimumReleaseAge=0'),
+    false,
+    'updater must not pass --config.minimumReleaseAge=0'
+  )
 })
