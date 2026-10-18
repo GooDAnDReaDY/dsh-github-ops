@@ -193,3 +193,33 @@ test('fetch calls in client use AbortSignal when available', () => {
   assert.ok(calls.length > 0, 'fetch should be called for status check')
   assert.equal(calls[0].opts.signal?.ms, 15000, 'AbortSignal.timeout should be attached with 15000ms')
 })
+
+test('PullRequestBar mounts safely in conversation.input.dock without ReferenceError (#127)', () => {
+  const { exports } = loadClient()
+  const registered = []
+  const ctx = {
+    locale: { register: () => {} },
+    slots: {
+      inject: (_n, f) => f(),
+      register: (entry, component) => { registered.push({ entry, component }); return () => {} },
+    },
+    configForms: { get: () => ({ subscribe: () => () => {}, getSnapshot: () => ({ status: 'ready', value: {} }), set: async () => {} }) },
+  }
+  exports.apply(ctx)
+
+  const prBarSeat = registered.find((r) => r.entry?.name === 'conversation.input.dock')
+  assert.ok(prBarSeat, 'conversation.input.dock slot must be registered')
+  assert.equal(typeof prBarSeat.component, 'function')
+
+  // 1. Mount without workspace
+  assert.doesNotThrow(() => {
+    const el = prBarSeat.component({ t: (k) => k })
+    assert.ok(el === null || typeof el === 'object')
+  }, 'PullRequestBar must render without ReferenceError when workspace is omitted')
+
+  // 2. Mount with workspace prop
+  assert.doesNotThrow(() => {
+    const el = prBarSeat.component({ t: (k) => k, workspace: '/some/path' })
+    assert.ok(el === null || typeof el === 'object')
+  }, 'PullRequestBar must render without ReferenceError when workspace is provided')
+})
