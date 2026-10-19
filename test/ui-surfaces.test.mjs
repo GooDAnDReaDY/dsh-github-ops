@@ -50,7 +50,7 @@ test('the source control route serves reads and gated writes, and both are trust
   const end = routes.indexOf('dsh-github-ops: scm route', start)
   const route = routes.slice(start, end)
   assert.match(route, /req\.method !== 'GET' && req\.method !== 'POST'/, 'only GET and POST are served')
-  assert.match(route, /if \(!isTrustedRequest\(req\)\)/)
+  assert.match(route, /if \(!isTrustedRequest\(req/)
   // a write is a named action turned into argv by the validated builder — never a shell string
   assert.match(route, /buildAction\(body\.action/)
   assert.match(route, /for \(const argv of built\.steps\)/)

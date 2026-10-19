@@ -445,3 +445,63 @@ test('PANEL_PATH what=blob encodes path with encodeRepoPath and returns content 
   assert.equal(res.result().json.text, 'hello world\n')
   assert.equal(capturedCalls[0].path, '/repos/myorg/myrepo/contents/README.md')
 })
+
+test('routes protect against unauthenticated remote LAN callers and accept authenticated sessions (#129)', async () => {
+  const { ctx, routes } = createHarness()
+  let currentRejection = undefined
+  const fakeConnection = {
+    requestRejection: () => currentRejection,
+  }
+
+  registerRoutes(ctx, {
+    resolveConnection: () => fakeConnection,
+    resolveToken: async () => ({ value: 'ghp_fake', source: 'test' }),
+    client: async () => ({
+      get: async () => ({ data: { login: 'octocat' }, rateLimit: { limit: 5000, remaining: 4999 } }),
+      lastScopes: () => 'repo',
+    }),
+    makeGitRunner: () => async () => ({ code: 0, stdout: 'main\n', stderr: '' }),
+  })
+
+  const remoteReq = () => ({
+    method: 'GET',
+    url: STATUS_PATH,
+    socket: { remoteAddress: '192.168.1.50' },
+    headers: {
+      host: '192.168.1.111:3080',
+      origin: 'http://192.168.1.111:3080',
+      'sec-fetch-site': 'same-origin',
+    },
+  })
+
+  // 1. Unauthenticated remote LAN caller receives 401
+  currentRejection = 401
+  const res401 = mockResponse()
+  await routes.get(STATUS_PATH)(remoteReq(), res401)
+  assert.equal(res401.result().status, 401)
+  assert.equal(res401.result().json.error, 'unauthorized')
+
+  // SCM POST receives 401
+  const postReq401 = Readable.from([Buffer.from(JSON.stringify({ action: 'stage', args: { path: 'a.txt' } }))])
+  postReq401.method = 'POST'
+  postReq401.url = SCM_PATH
+  postReq401.socket = { remoteAddress: '192.168.1.50' }
+  postReq401.headers = {
+    host: '192.168.1.111:3080',
+    origin: 'http://192.168.1.111:3080',
+    'sec-fetch-site': 'same-origin',
+  }
+  const postRes401 = mockResponse()
+  await routes.get(SCM_PATH)(postReq401, postRes401)
+  assert.equal(postRes401.result().status, 401)
+  assert.equal(postRes401.result().json.error, 'unauthorized')
+
+  // 2. Authenticated remote LAN caller receives 200
+  currentRejection = undefined
+  const res200 = mockResponse()
+  await routes.get(STATUS_PATH)(remoteReq(), res200)
+  assert.equal(res200.result().status, 200)
+  assert.equal(res200.result().json.configured, true)
+  assert.equal(res200.result().json.login, 'octocat')
+})
+

@@ -61,7 +61,7 @@ test('the panel route is read-only, trusted-caller only, and switches on `what`'
   const end = routes.indexOf('dsh-github-ops: panel route', start)
   const route = routes.slice(start, end)
   assert.match(route, /if \(req\.method !== 'GET'\)/)
-  assert.match(route, /if \(!isTrustedRequest\(req\)\)/)
+  assert.match(route, /if \(!isTrustedRequest\(req/)
   assert.match(route, /what === 'repos'/)
   assert.match(route, /what === 'tree'/)
   assert.match(route, /what === 'blob'/)

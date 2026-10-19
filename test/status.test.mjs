@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { isTrustedRequest, isTrustedWriteRequest, statusPayload, sendJson } from '../lib/status.js'
+import { isTrustedRequest, isTrustedWriteRequest, getRejectionStatus, getWriteRejectionStatus, statusPayload, sendJson } from '../lib/status.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const routes = fs.readFileSync(path.join(here, '..', 'lib', 'routes.js'), 'utf8')
@@ -24,8 +24,8 @@ test('only a local or same-origin caller may read the status', () => {
   assert.equal(isTrustedRequest(request({ address: '192.168.1.50' })), false, 'a remote address without an origin is refused')
   assert.equal(
     isTrustedRequest(request({ address: '192.168.1.50', headers: { host: '127.0.0.1:3080', origin: 'http://127.0.0.1:3080' } })),
-    true,
-    'a same-origin caller is allowed',
+    false,
+    'a remote LAN caller without connection service is refused (#129)',
   )
   assert.equal(
     isTrustedRequest(request({ address: '192.168.1.50', headers: { host: '127.0.0.1:3080', origin: 'http://evil.example' } })),
@@ -103,7 +103,7 @@ test('sendJson writes JSON, forbids caching and survives a dead client', () => {
 
 test('the host registers the route behind the trust check, and the card reads it', () => {
   assert.match(routes, /path: STATUS_PATH/)
-  assert.match(routes, /if \(!isTrustedRequest\(req\)\) return sendJson\(res, 403/)
+  assert.match(routes, /if \(!isTrustedRequest\(req/)
   assert.match(routes, /req\.method !== 'GET'/)
   assert.match(routes, /statusPayload\(\{/)
   assert.match(clientSource, /const STATUS_PATH = '\/dsh-github-ops\/status'/)
@@ -146,7 +146,7 @@ test('isTrustedWriteRequest enforces strict origin and same-origin fetch-site ru
     false
   )
 
-  // same-origin write with matching host is allowed
+  // same-origin write with matching host is refused without connection session (#129)
   assert.equal(
     isTrustedWriteRequest(request({
       address: '192.168.1.50',
@@ -156,7 +156,8 @@ test('isTrustedWriteRequest enforces strict origin and same-origin fetch-site ru
         'sec-fetch-site': 'same-origin',
       },
     })),
-    true
+    false,
+    'remote LAN write without connection is refused (#129)',
   )
 })
 
@@ -220,3 +221,56 @@ test('isTrustedRequest and isTrustedWriteRequest accept DSH Desktop Electron req
   assert.equal(isTrustedRequest(desktopCrossSite), false, 'cross-site overrides custom scheme referer')
   assert.equal(isTrustedWriteRequest(desktopCrossSite), false, 'cross-site overrides custom scheme referer on write')
 })
+
+test('connection.requestRejection gates authenticated remote LAN requests (#129)', () => {
+  const mockAuthConn = { requestRejection: () => undefined }
+  const mockUnauthConn = { requestRejection: () => 401 }
+  const mockForbiddenConn = { requestRejection: () => 403 }
+  const mockThrowingConn = { requestRejection: () => { throw new Error('connection crashed') } }
+
+  const lanReq = request({
+    address: '192.168.1.50',
+    headers: {
+      host: '192.168.1.111:3080',
+      origin: 'http://192.168.1.111:3080',
+      'sec-fetch-site': 'same-origin',
+    },
+  })
+
+  // 1. Authenticated session allows read & write
+  assert.equal(isTrustedRequest(lanReq, { connection: mockAuthConn }), true)
+  assert.equal(getRejectionStatus(lanReq, { connection: mockAuthConn }), undefined)
+  assert.equal(isTrustedWriteRequest(lanReq, { connection: mockAuthConn }), true)
+  assert.equal(getWriteRejectionStatus(lanReq, { connection: mockAuthConn }), undefined)
+
+  // 2. Unauthenticated session returns 401
+  assert.equal(isTrustedRequest(lanReq, { connection: mockUnauthConn }), false)
+  assert.equal(getRejectionStatus(lanReq, { connection: mockUnauthConn }), 401)
+  assert.equal(isTrustedWriteRequest(lanReq, { connection: mockUnauthConn }), false)
+  assert.equal(getWriteRejectionStatus(lanReq, { connection: mockUnauthConn }), 401)
+
+  // 3. Forbidden session returns 403
+  assert.equal(isTrustedRequest(lanReq, { connection: mockForbiddenConn }), false)
+  assert.equal(getRejectionStatus(lanReq, { connection: mockForbiddenConn }), 403)
+  assert.equal(isTrustedWriteRequest(lanReq, { connection: mockForbiddenConn }), false)
+  assert.equal(getWriteRejectionStatus(lanReq, { connection: mockForbiddenConn }), 403)
+
+  // 4. Exception in connection service fails closed with 403
+  assert.equal(isTrustedRequest(lanReq, { connection: mockThrowingConn }), false)
+  assert.equal(getRejectionStatus(lanReq, { connection: mockThrowingConn }), 403)
+  assert.equal(isTrustedWriteRequest(lanReq, { connection: mockThrowingConn }), false)
+  assert.equal(getWriteRejectionStatus(lanReq, { connection: mockThrowingConn }), 403)
+
+  // 5. Authenticated session still enforces CSRF guards (cross-site is blocked)
+  const crossSiteReq = request({
+    address: '192.168.1.50',
+    headers: {
+      host: '192.168.1.111:3080',
+      origin: 'http://192.168.1.111:3080',
+      'sec-fetch-site': 'cross-site',
+    },
+  })
+  assert.equal(isTrustedRequest(crossSiteReq, { connection: mockAuthConn }), false)
+  assert.equal(isTrustedWriteRequest(crossSiteReq, { connection: mockAuthConn }), false)
+})
+
