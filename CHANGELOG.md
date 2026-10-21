@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.9
+
+### Features
+- **Conventional Changelog Generator (#123)**: Added `gh_changelog_generate` tool parsing commit and PR history according to Conventional Commits standard (`feat:`, `fix:`, `perf:`, `refactor:`, `chore:`, etc.), detecting Breaking Changes (`!` and `BREAKING CHANGE:`), recommending SemVer bump (`major`, `minor`, `patch`), and outputting structured JSON and GitHub/CHANGELOG markdown. Added Changelog tab in repository panel UI.
+- **GoodAndReady Community Scaffold (#126)**: Added `gh_community_scaffold` tool generating standardized community health files (`.github/ISSUE_TEMPLATE` bug report, feature request, security advisory; 5-section `.github/PULL_REQUEST_TEMPLATE.md`; `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`). Integrated `includeCommunityFiles` option into `gh_upload_project` and `uploadProject`.
+
 ## 0.5.0
 
 ### Features
