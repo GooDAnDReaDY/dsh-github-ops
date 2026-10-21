@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.6.12
+## 0.6.13
 
 ### Features
 - **GitHub Discussions GraphQL Tools (#118)**: Added `gh_discussion_list`, `gh_discussion_view`, `gh_discussion_create`, and `gh_discussion_comment` tools using GitHub GraphQL API with `confirm: true` protection for creating discussions and posting threaded replies.
