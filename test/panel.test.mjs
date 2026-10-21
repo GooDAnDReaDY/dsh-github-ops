@@ -96,7 +96,7 @@ test('the panel reads through the host route and never sends a write', () => {
 })
 
 test('both locales carry the panel strings', () => {
-  for (const key of ['panelTitle', 'panelChoose', 'panelIssues', 'panelPulls', 'panelRuns', 'panelInbox', 'panelNoAccess', 'panelEmpty', 'panelLoading']) {
+  for (const key of ['panelTitle', 'panelChoose', 'panelIssues', 'panelPulls', 'panelRuns', 'panelInbox', 'panelNoAccess', 'panelEmpty', 'panelLoading', 'panelPrReviewBtn', 'panelPrBack', 'panelPrFilesChanged', 'panelPrAddComment', 'panelPrInsertSuggestion', 'panelPrSubmitReview', 'panelPrResolve', 'panelPrApplySuggestion']) {
     const count = client.split(`${key}:`).length - 1
     assert.ok(count >= 2, `${key} should exist in both dictionaries, found ${count}`)
   }

@@ -267,6 +267,12 @@ index 1234567..89abcdef 100644
   assert.match(hunks[0].patch, /\+const b = 20;/)
   assert.ok(hunks[0].lines.some((l) => l.type === 'add' && l.text === '+const b = 20;'))
   assert.ok(hunks[0].lines.some((l) => l.type === 'del' && l.text === '-const b = 2;'))
+  assert.equal(hunks[0].lines[1].oldLine, 1)
+  assert.equal(hunks[0].lines[1].newLine, 1)
+  assert.equal(hunks[0].lines[2].oldLine, 2)
+  assert.equal(hunks[0].lines[2].newLine, null)
+  assert.equal(hunks[0].lines[3].oldLine, null)
+  assert.equal(hunks[0].lines[3].newLine, 2)
 
   // Hunk 2
   assert.equal(hunks[1].oldStart, 20)

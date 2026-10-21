@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { Readable } from 'node:stream'
 
-import { registerRoutes, STATUS_PATH, SCM_PATH, PANEL_PATH, MIRROR_PATH, MATRIX_PATH, GRAPH_PATH, EVENTS_PATH } from '../lib/routes.js'
+import { registerRoutes, STATUS_PATH, SCM_PATH, PANEL_PATH, MIRROR_PATH, MATRIX_PATH, GRAPH_PATH, EVENTS_PATH, PR_REVIEW_PATH } from '../lib/routes.js'
 
 function createHarness() {
   const routes = new Map()
@@ -588,4 +588,153 @@ test('SCM_PATH POST cherry_pick handles merge conflict and reports mergeState in
   assert.ok(json.error.includes('merge conflicts'))
 
   await fs.rm(tmpDir, { recursive: true, force: true })
+})
+
+test('PR_REVIEW_PATH GET returns pull details, files with parsed hunks, and threads', async () => {
+  const { ctx, routes } = createHarness()
+  const fakePull = {
+    number: 42,
+    title: 'Feat: Add inline review',
+    body: 'PR description',
+    state: 'open',
+    user: { login: 'octocat' },
+    base: { ref: 'main' },
+    head: { ref: 'feat/review', sha: '11223344556677889900aabbccddeeff11223344' },
+    html_url: 'https://github.com/o/r/pull/42',
+    additions: 5,
+    deletions: 2,
+    changed_files: 1,
+  }
+  const samplePatch = `@@ -1,3 +1,4 @@
+ const a = 1;
+-const b = 2;
++const b = 20;
++const c = 30;
+`
+  const fakeFiles = [
+    { filename: 'lib/app.js', status: 'modified', additions: 2, deletions: 1, patch: samplePatch },
+  ]
+  const fakeComments = [
+    { id: 101, path: 'lib/app.js', line: 2, side: 'RIGHT', body: 'Nice fix', user: { login: 'reviewer' }, created_at: '2026-10-21T10:00:00Z', html_url: 'https://github.com/o/r/pull/42#comment-101' },
+  ]
+
+  registerRoutes(ctx, {
+    resolveToken: async () => ({ value: 'test-token', source: 'test' }),
+    client: async () => ({
+      get: async (urlPath) => {
+        if (urlPath === '/repos/owner/repo/pulls/42') return { data: fakePull }
+        if (urlPath === '/repos/owner/repo/pulls/42/files') return { data: fakeFiles }
+        if (urlPath === '/repos/owner/repo/pulls/42/comments') return { data: fakeComments }
+        return { data: {} }
+      },
+      graphql: async () => {
+        throw new Error('GraphQL simulated failure to test REST fallback')
+      },
+    }),
+  })
+
+  const req = {
+    method: 'GET',
+    url: `${PR_REVIEW_PATH}?repo=owner/repo&number=42`,
+    socket: { remoteAddress: '127.0.0.1' },
+    headers: { host: 'localhost' },
+  }
+  const res = mockResponse()
+  await routes.get(PR_REVIEW_PATH)(req, res)
+
+  assert.equal(res.result().status, 200)
+  const json = res.result().json
+  assert.equal(json.configured, true)
+  assert.equal(json.pull.number, 42)
+  assert.equal(json.pull.title, 'Feat: Add inline review')
+  assert.equal(json.files.length, 1)
+  assert.equal(json.files[0].filename, 'lib/app.js')
+  assert.equal(json.files[0].hunks.length, 1)
+  assert.equal(json.files[0].hunks[0].lines[0].oldLine, null) // hunk_header
+  assert.equal(json.files[0].hunks[0].lines[1].oldLine, 1)    // context line 1
+  assert.equal(json.files[0].hunks[0].lines[1].newLine, 1)
+  assert.equal(json.threads.length, 1)
+  assert.equal(json.threads[0].path, 'lib/app.js')
+  assert.equal(json.threads[0].comments[0].body, 'Nice fix')
+})
+
+test('PR_REVIEW_PATH POST handles inline comment and thread resolve/reply actions', async () => {
+  const { ctx, routes } = createHarness()
+  const postedCalls = []
+  registerRoutes(ctx, {
+    resolveToken: async () => ({ value: 'test-token', source: 'test' }),
+    client: async () => ({
+      get: async (urlPath) => {
+        if (urlPath === '/repos/owner/repo/pulls/42') {
+          return { data: { number: 42, head: { sha: 'commit123', ref: 'branch' }, state: 'open' } }
+        }
+        return { data: {} }
+      },
+      post: async (urlPath, body) => {
+        postedCalls.push({ urlPath, body })
+        if (urlPath === '/repos/owner/repo/pulls/42/comments') {
+          return { data: { id: 202, body: body.body, line: body.line, path: body.path } }
+        }
+        if (urlPath === '/repos/owner/repo/pulls/42/reviews') {
+          return { data: { id: 303, state: body.event, body: body.body } }
+        }
+        return { data: {} }
+      },
+      graphql: async (query, vars) => {
+        postedCalls.push({ graphql: true, query, vars })
+        if (query.includes('resolveReviewThread')) {
+          return { resolveReviewThread: { thread: { id: vars.threadId, isResolved: true } } }
+        }
+        if (query.includes('addPullRequestReviewThreadReply')) {
+          return { addPullRequestReviewThreadReply: { comment: { id: 'reply1', databaseId: 404, body: vars.body } } }
+        }
+        return {}
+      },
+    }),
+  })
+
+  // 1. Post comment
+  {
+    const body = { action: 'comment', repo: 'owner/repo', number: 42, path: 'lib/app.js', line: 2, body: 'Suggestion note' }
+    const req = Readable.from([Buffer.from(JSON.stringify(body))])
+    req.method = 'POST'
+    req.url = PR_REVIEW_PATH
+    req.socket = { remoteAddress: '127.0.0.1' }
+    req.headers = { host: 'localhost', origin: 'http://localhost' }
+    const res = mockResponse()
+    await routes.get(PR_REVIEW_PATH)(req, res)
+    assert.equal(res.result().status, 200)
+    assert.equal(res.result().json.ok, true)
+    assert.equal(res.result().json.comment.id, 202)
+  }
+
+  // 2. Resolve thread
+  {
+    const body = { action: 'resolve_thread', repo: 'owner/repo', number: 42, threadId: 'thread_xyz', resolve: true }
+    const req = Readable.from([Buffer.from(JSON.stringify(body))])
+    req.method = 'POST'
+    req.url = PR_REVIEW_PATH
+    req.socket = { remoteAddress: '127.0.0.1' }
+    req.headers = { host: 'localhost', origin: 'http://localhost' }
+    const res = mockResponse()
+    await routes.get(PR_REVIEW_PATH)(req, res)
+    assert.equal(res.result().status, 200)
+    assert.equal(res.result().json.ok, true)
+    assert.equal(res.result().json.isResolved, true)
+  }
+
+  // 3. Submit full review
+  {
+    const body = { action: 'submit_review', repo: 'owner/repo', number: 42, body: 'Looks great!', event: 'APPROVE' }
+    const req = Readable.from([Buffer.from(JSON.stringify(body))])
+    req.method = 'POST'
+    req.url = PR_REVIEW_PATH
+    req.socket = { remoteAddress: '127.0.0.1' }
+    req.headers = { host: 'localhost', origin: 'http://localhost' }
+    const res = mockResponse()
+    await routes.get(PR_REVIEW_PATH)(req, res)
+    assert.equal(res.result().status, 200)
+    assert.equal(res.result().json.ok, true)
+    assert.equal(res.result().json.review.state, 'APPROVE')
+  }
 })
