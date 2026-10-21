@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.14
+
+### Features
+- **Inline PR Review Workspace in Web UI (#116)**: Added interactive side-by-side / hunk diff viewer in the Web UI repository panel (`tab === 'pulls'`) with line number tracking (`oldLine` / `newLine`), click-to-comment inline review form, one-click ```suggestion``` snippet generator, live review thread discussion viewer with reply inputs, conversation resolution toggling (`resolve_thread`), and full pull request review submissions (Approve, Comment, Request Changes) backed by dedicated `/dsh-github-ops/pr-review` endpoint.
+
 ## 0.6.13
 
 ### Features
