@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.10
+
+### Features
+- **GitHub Environments & Deployments Management (#122)**: Added `gh_environment_list` tool to inspect deployment environments, wait timers, and protection rules. Added `gh_deployment_list`, `gh_deployment_create`, and `gh_deployment_status_create` tools for full deployment lifecycle auditing and status updates.
+- **Webhook Simulator & Event Emitter (#125)**: Added `gh_webhook_simulate` tool supporting canonical mock payloads for `issues`, `pull_request`, `workflow_run`, `release`, `deployment`, `deployment_status`, and `push` events, with live broadcast into local `SseEventManager` and optional HTTP delivery to webhook receivers.
+
 ## 0.6.9
 
 ### Features
