@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.6.10
+## 0.6.11
 
 ### Features
 - **GitHub Environments & Deployments Management (#122)**: Added `gh_environment_list` tool to inspect deployment environments, wait timers, and protection rules. Added `gh_deployment_list`, `gh_deployment_create`, and `gh_deployment_status_create` tools for full deployment lifecycle auditing and status updates.
