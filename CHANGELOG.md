@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.12
+
+### Features
+- **GitHub Discussions GraphQL Tools (#118)**: Added `gh_discussion_list`, `gh_discussion_view`, `gh_discussion_create`, and `gh_discussion_comment` tools using GitHub GraphQL API with `confirm: true` protection for creating discussions and posting threaded replies.
+- **Bi-directional Issue Mirroring & Sync GitHub ↔ Gitea (#120)**: Added `gh_issue_mirror_sync` tool with anti-loop synchronization markers (`<!-- synced-from: ... -->`), propagation of comments across GitHub and Gitea in both directions, and automatic synchronized closure of linked issues upon release.
+
 ## 0.6.11
 
 ### Features
