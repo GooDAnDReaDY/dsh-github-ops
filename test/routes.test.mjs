@@ -505,3 +505,87 @@ test('routes protect against unauthenticated remote LAN callers and accept authe
   assert.equal(res200.result().json.login, 'octocat')
 })
 
+
+test('SCM_PATH GET includes submodules from git submodule status', async () => {
+  const { ctx, routes } = createHarness()
+  registerRoutes(ctx, {
+    makeGitRunner: () => async (argv) => {
+      const cmd = argv.join(' ')
+      if (cmd.includes('rev-parse --abbrev-ref HEAD')) return { code: 0, stdout: 'main\n', stderr: '' }
+      if (cmd.includes('rev-parse --abbrev-ref --symbolic-full-name')) return { code: 1, stdout: '', stderr: '' }
+      if (cmd.includes('status --porcelain=v1')) return { code: 0, stdout: '', stderr: '' }
+      if (cmd.includes('branch --format')) return { code: 0, stdout: 'main\t*\n', stderr: '' }
+      if (cmd.includes('tag --list')) return { code: 0, stdout: '', stderr: '' }
+      if (cmd.includes('stash list')) return { code: 0, stdout: '', stderr: '' }
+      if (cmd.includes('worktree list')) return { code: 0, stdout: '', stderr: '' }
+      if (cmd.includes('submodule status')) return { code: 0, stdout: ' 31018dd vendor/lib (v1.0.0)\n-abcdef1 packages/plugin\n', stderr: '' }
+      if (cmd.includes('rev-parse --absolute-git-dir')) return { code: 0, stdout: '/tmp/repo/.git\n', stderr: '' }
+      return { code: 0, stdout: '', stderr: '' }
+    },
+  })
+
+  const res = mockResponse()
+  await routes.get(SCM_PATH)({
+    method: 'GET',
+    url: SCM_PATH,
+    socket: { remoteAddress: '127.0.0.1' },
+    headers: {},
+  }, res)
+
+  assert.equal(res.result().status, 200)
+  const json = res.result().json
+  assert.equal(json.isRepository, true)
+  assert.equal(json.submodules.length, 2)
+  assert.equal(json.submodules[0].path, 'vendor/lib')
+  assert.equal(json.submodules[0].status, 'in-sync')
+  assert.equal(json.submodules[1].path, 'packages/plugin')
+  assert.equal(json.submodules[1].status, 'uninitialized')
+})
+
+test('SCM_PATH POST cherry_pick handles merge conflict and reports mergeState inProgress', async () => {
+  const fs = await import('node:fs/promises')
+  const os = await import('node:os')
+  const path = await import('node:path')
+
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-scm-cherry-'))
+  const gitDir = path.join(tmpDir, '.git')
+  await fs.mkdir(gitDir, { recursive: true })
+
+  const { ctx, routes } = createHarness()
+  registerRoutes(ctx, {
+    makeGitRunner: () => async (argv) => {
+      const cmd = argv.join(' ')
+      if (cmd.startsWith('cherry-pick')) {
+        // simulate git cherry-pick conflict by writing CHERRY_PICK_HEAD
+        await fs.writeFile(path.join(gitDir, 'CHERRY_PICK_HEAD'), 'abcdef1\n')
+        return { code: 1, stdout: '', stderr: 'error: could not apply abcdef1...\nhint: after resolving the conflicts' }
+      }
+      if (cmd.includes('rev-parse --absolute-git-dir')) {
+        return { code: 0, stdout: `${gitDir}\n`, stderr: '' }
+      }
+      return { code: 0, stdout: '', stderr: '' }
+    },
+  })
+
+  const { Readable } = await import('node:stream')
+  const body = { action: 'cherry_pick', args: { commit: 'abcdef1', confirm: true }, cwd: tmpDir }
+  const req = Readable.from([Buffer.from(JSON.stringify(body))])
+  req.method = 'POST'
+  req.url = SCM_PATH
+  req.socket = { remoteAddress: '127.0.0.1' }
+  req.headers = { host: 'localhost' }
+
+  const res = mockResponse()
+  await routes.get(SCM_PATH)(req, res)
+
+  assert.equal(res.result().status, 200)
+  const json = res.result().json
+  assert.equal(json.ok, false)
+  assert.equal(json.action, 'cherry_pick')
+  assert.equal(json.hasConflicts, true)
+  assert.equal(json.mergeState.inProgress, true)
+  assert.equal(json.mergeState.kind, 'cherry-pick')
+  assert.ok(json.error.includes('merge conflicts'))
+
+  await fs.rm(tmpDir, { recursive: true, force: true })
+})

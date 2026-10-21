@@ -15,6 +15,7 @@ import {
   resolveConflictContent,
   parseDiffHunks,
   parseGitGraph,
+  parseSubmodules,
 } from '../lib/scm.js'
 
 test('parseStatusLine understands plain, renamed and quoted paths', () => {
@@ -319,4 +320,47 @@ test('parseGitGraph correctly parses commit lines and ASCII connectors', () => {
   // Empty input
   assert.deepEqual(parseGitGraph(''), [])
   assert.deepEqual(parseGitGraph(null), [])
+})
+
+test('parseSubmodules parses git submodule status output cleanly', () => {
+  const sample = [
+    ' 31018dd71d809a4b5648de48c412b02e55cd4150 vendor/lib (v1.0.0)',
+    '-1234567890abcdef1234567890abcdef12345678 packages/core',
+    '+abcdef1234567890abcdef1234567890abcdef12 shared/utils (heads/main)',
+    'U9998888777766665555444433332222111100000 dep/conflict',
+  ].join('\n')
+
+  const parsed = parseSubmodules(sample)
+  assert.equal(parsed.length, 4)
+
+  assert.equal(parsed[0].status, 'in-sync')
+  assert.equal(parsed[0].commit, '31018dd71d809a4b5648de48c412b02e55cd4150')
+  assert.equal(parsed[0].shortCommit, '31018dd')
+  assert.equal(parsed[0].path, 'vendor/lib')
+  assert.equal(parsed[0].describe, 'v1.0.0')
+
+  assert.equal(parsed[1].status, 'uninitialized')
+  assert.equal(parsed[1].path, 'packages/core')
+  assert.equal(parsed[1].describe, null)
+
+  assert.equal(parsed[2].status, 'modified')
+  assert.equal(parsed[2].path, 'shared/utils')
+  assert.equal(parsed[2].describe, 'heads/main')
+
+  assert.equal(parsed[3].status, 'conflict')
+  assert.equal(parsed[3].path, 'dep/conflict')
+
+  // empty or null
+  assert.deepEqual(parseSubmodules(''), [])
+  assert.deepEqual(parseSubmodules(null), [])
+})
+
+test('scmPayload includes submodules array', () => {
+  const payload = scmPayload({
+    cwd: '/repo',
+    branch: 'main',
+    submodules: [{ path: 'vendor/foo', status: 'in-sync' }],
+  })
+  assert.equal(payload.submodules.length, 1)
+  assert.equal(payload.submodules[0].path, 'vendor/foo')
 })

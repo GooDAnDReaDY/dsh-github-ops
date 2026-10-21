@@ -10,6 +10,7 @@ import {
   validateStashRef,
   validateCwd,
   validatePatch,
+  validateCommitSha,
   ACTIONS,
   OPERATION_VERBS,
 } from '../lib/scm-write.js'
@@ -36,6 +37,9 @@ test('every action builds argv arrays and never a shell string', () => {
       continue: { verb: 'merge' },
       abort: { verb: 'rebase', confirm: true },
       resolveConflict: { path: 'a.js', choice: 'ours' },
+      cherry_pick: { commit: '1234567', confirm: true },
+      revert: { commit: '1234567', confirm: true },
+      submodule_update: {},
     }[action]
     const built = buildAction(action, args)
     assert.equal(built.action, action)
@@ -274,4 +278,54 @@ test('validateCwd accepts Windows drive paths and UNC paths, rejecting Windows s
   // Reject relative Windows paths
   assert.throws(() => validateCwd('work\\repo'), /repository path must be absolute/)
   assert.throws(() => validateCwd('.\\repo'), /repository path must be absolute/)
+})
+
+test('validateCommitSha validates commit hashes and rejects unsafe strings', () => {
+  assert.equal(validateCommitSha('abcdef1'), 'abcdef1')
+  assert.equal(validateCommitSha('1234567890abcdef1234567890abcdef12345678'), '1234567890abcdef1234567890abcdef12345678')
+
+  assert.throws(() => validateCommitSha(''), /invalid commit hash/)
+  assert.throws(() => validateCommitSha('short'), /invalid commit hash/)
+  assert.throws(() => validateCommitSha('abcdefg'), /invalid commit hash/)
+  assert.throws(() => validateCommitSha('abcdef1; rm -rf /'), /invalid commit hash/)
+  assert.throws(() => validateCommitSha('1234567890abcdef1234567890abcdef1234567890a'), /invalid commit hash/)
+})
+
+test('cherry_pick and revert require confirm: true and build correct steps', () => {
+  // cherry-pick refusal without confirm
+  assert.throws(() => buildAction('cherry_pick', { commit: 'abcdef1' }), /refusing "cherry_pick" without confirm: true/)
+  assert.throws(() => buildAction('cherryPick', { commit: 'abcdef1' }), /refusing "cherryPick" without confirm: true/)
+
+  // cherry-pick with confirm
+  const cpRes = buildAction('cherry_pick', { commit: 'abcdef1', confirm: true })
+  assert.equal(cpRes.action, 'cherry_pick')
+  assert.equal(cpRes.destructive, true)
+  assert.deepEqual(cpRes.steps, [['cherry-pick', 'abcdef1']])
+
+  // revert refusal without confirm
+  assert.throws(() => buildAction('revert', { commit: 'abcdef1' }), /refusing "revert" without confirm: true/)
+
+  // revert with confirm
+  const revRes = buildAction('revert', { commit: 'abcdef1', confirm: true })
+  assert.equal(revRes.action, 'revert')
+  assert.equal(revRes.destructive, true)
+  assert.deepEqual(revRes.steps, [['revert', '--no-edit', 'abcdef1']])
+
+  const revEdit = buildAction('revert', { commit: 'abcdef1', confirm: true, noEdit: false })
+  assert.deepEqual(revEdit.steps, [['revert', 'abcdef1']])
+})
+
+test('submodule_update builds correct steps with and without path', () => {
+  const allRes = buildAction('submodule_update', {})
+  assert.equal(allRes.action, 'submodule_update')
+  assert.equal(allRes.destructive, false)
+  assert.deepEqual(allRes.steps, [['submodule', 'update', '--init', '--recursive']])
+
+  const pathRes = buildAction('submodule_update', { path: 'vendor/core' })
+  assert.deepEqual(pathRes.steps, [['submodule', 'update', '--init', '--recursive', '--', 'vendor/core']])
+
+  const aliasRes = buildAction('submoduleUpdate', {})
+  assert.equal(aliasRes.action, 'submodule_update')
+
+  assert.throws(() => buildAction('submodule_update', { path: '../traversal' }), /unsafe path/)
 })
