@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.16
+
+### Features
+- **Multi-Axis Topic Exploration (`gh_explore`) (#137)**: Added `gh_explore` tool to investigate domains across 2 to 5 semantic axes with parallel search, logarithmic star/fork relevance scoring, cross-axis boost multipliers, automatic awesome-list penalties, full JSON report disk persistence, and context-saving summary (<= 3 KB).
+- **Smart Repository Search (`gh_find_repos`) (#137)**: Added `gh_find_repos` tool with default exclusions of forks and archived repositories, minimum star thresholds, optional readme scope, language/topic filters, and deduplication.
+- **Advanced Global Issue & PR Search (`gh_issue_search`) (#137)**: Added `gh_issue_search` tool enabling rich search across GitHub or targeted repos/orgs with state (`open`/`closed`), type (`issue`/`pr`), label, author, and assignee filters.
+- **Enhanced Trending Repositories (`gh_trending`) (#137)**: Added `window` (`daily`, `weekly`, `monthly`), `topic` filters, and configurable `minStars` threshold.
+
 ## 0.6.15
 
 ### Features
