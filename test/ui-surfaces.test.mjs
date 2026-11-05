@@ -30,7 +30,7 @@ test('the bar suggests and never writes', () => {
 })
 
 test('both locales carry the new strings, and no Russian text is introduced', () => {
-  for (const key of ['prBarCreate', 'prBarReview', 'prBarMerge', 'prBarCopied', 'prBarCopyFailed', 'scmTitle', 'scmNotRepo']) {
+  for (const key of ['prBarCreate', 'prBarReview', 'prBarMerge', 'prBarCopied', 'prBarCopyFailed', 'scmTitle', 'scmNotRepo', 'showPrBar', 'showPrBarHint']) {
     const occurrences = client.split(`${key}:`).length - 1
     assert.ok(occurrences >= 2, `${key} should exist in both dictionaries, found ${occurrences}`)
   }
