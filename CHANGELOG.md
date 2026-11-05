@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.17
+
+### Features
+- **Pull Request Bar Visibility Setting & SCM Panel Actions (#139)**: Added `showPrBar` configuration setting (volatile boolean, default `true`) allowing users to show or hide the pull request suggestion bar above the composer dock without restarting. Added alternative canonical PR actions (`Create PR`, `Review PR`, `Merge PR`) directly within the Source Control view (`SourceControlView`) with one-click clipboard copying, ensuring full feature parity and zero workflow disruption when the dock bar is disabled.
+
 ## 0.6.16
 
 ### Features
