@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.18
+
+### Features
+- **Multilingual PR Summaries & Triage Drafts (#141)**: Added multilingual support (`en` default, `zh`, `ru`) to `gh_generate_pr_summary` (`generatePrSummary`) and `gh_triage_external_issues` (`formatGiteaDraft`), with configurable `prSummaryLocale` in plugin settings and `locale` parameter in tool invocations.
+
+### Bug Fixes
+- **Package Lockfile Synchronization (#142)**: Updated `package-lock.json` to satisfy current `devDependencies` ranges; verified clean reproducible `npm ci` installs.
+- **Release Asset Test Path Isolation (#143)**: Replaced static `/tmp/dsh-test-asset.txt` in `test/releases.test.mjs` with per-test isolated temporary directories via `mkdtemp`, preventing file access race conditions during parallel test runs.
+- **Semantic Theme Variables for UI Colors (#144)**: Wrapped all 37 hardcoded hex and rgba color literals in `lib/client.js` with semantic DSH theme variables (`--dsw-alias-state-*`, `--dsw-alias-brand-primary`, `--dsw-alias-color-*`) as fallbacks, ensuring proper contrast and responsiveness in light theme.
+
 ## 0.6.17
 
 ### Features
