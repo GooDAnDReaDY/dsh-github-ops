@@ -176,7 +176,8 @@ test('listReleaseAssets normalizes assets and respects limit', async () => {
 })
 
 test('uploadReleaseAsset uploads file buffer with proper headers and url', async () => {
-  const tmpFile = path.join(os.tmpdir(), 'dsh-test-asset.txt')
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-gh-'))
+  const tmpFile = path.join(tmpDir, 'dsh-test-asset.txt')
   await fs.writeFile(tmpFile, 'hello world asset')
   try {
     let calledUrl = ''
@@ -211,7 +212,7 @@ test('uploadReleaseAsset uploads file buffer with proper headers and url', async
     assert.equal(calledOpts.query.label, 'Test Label')
     assert.equal(calledOpts.headers['content-type'], 'text/plain')
   } finally {
-    await fs.unlink(tmpFile).catch(() => {})
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
   }
 })
 
@@ -259,21 +260,22 @@ test('uploadReleaseAsset rejects paths with control characters', async () => {
 })
 
 test('uploadReleaseAsset rejects paths escaping workspace directory when cwd is set', async () => {
+  const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-release-outside-'))
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-release-cwd-'))
-  const outsideFile = path.join(os.tmpdir(), 'dsh-outside-asset.txt')
+  const outsideFile = path.join(outsideDir, 'dsh-outside-asset.txt')
   await fs.writeFile(outsideFile, 'secret outside')
   try {
     const client = clientDouble([])
     await assert.rejects(
       () => uploadReleaseAsset(client, {
         owner: 'o', repo: 'r', tag: 'v0.1.0',
-        filePath: '../dsh-outside-asset.txt',
+        filePath: path.relative(tmpDir, outsideFile),
         cwd: tmpDir,
       }),
       /filePath must reside within the workspace directory/,
     )
   } finally {
-    await fs.unlink(outsideFile).catch(() => {})
+    await fs.rm(outsideDir, { recursive: true, force: true }).catch(() => {})
     await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
   }
 })

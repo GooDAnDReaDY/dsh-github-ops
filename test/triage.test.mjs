@@ -146,3 +146,30 @@ test('triageExternalIssues syncs missing issues when sync and confirm are true',
   assert.equal(res.items[0].synced, true)
   assert.equal(res.items[0].giteaIssueNumber, 77)
 })
+
+test('formatGiteaDraft supports multilingual templates (en, ru, zh)', () => {
+  const issue = {
+    number: 10,
+    title: 'feature request',
+    body: 'need feature',
+    html_url: 'https://github.com/o/r/issues/10',
+    user: { login: 'user1' },
+    created_at: '2026-03-01T00:00:00Z',
+    labels: [],
+  }
+
+  const enDraft = formatGiteaDraft({ owner: 'o', repo: 'r', issue, locale: 'en' })
+  assert.ok(enDraft.body.includes('### 1. Source and Context'))
+  assert.ok(enDraft.body.includes('Incoming external issue: [o/r#10](https://github.com/o/r/issues/10)'))
+  assert.ok(enDraft.body.includes('### 3. What Needs to Be Done'))
+
+  const ruDraft = formatGiteaDraft({ owner: 'o', repo: 'r', issue, locale: 'ru' })
+  assert.ok(ruDraft.body.includes('### 1. Источник и контекст'))
+  assert.ok(ruDraft.body.includes('Входящая внешняя issue: [o/r#10](https://github.com/o/r/issues/10)'))
+  assert.ok(ruDraft.body.includes('### 3. Что должно быть сделано'))
+
+  const zhDraft = formatGiteaDraft({ owner: 'o', repo: 'r', issue, locale: 'zh' })
+  assert.ok(zhDraft.body.includes('### 1. 来源与上下文'))
+  assert.ok(zhDraft.body.includes('外部引入 issue: [o/r#10](https://github.com/o/r/issues/10)'))
+  assert.ok(zhDraft.body.includes('### 3. 需要完成的工作'))
+})
