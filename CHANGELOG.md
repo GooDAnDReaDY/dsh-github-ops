@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.19
+
+### Bug Fixes
+- **Pure CSS Theme Variables in Web UI (#146)**: Eliminated all 42 hardcoded color literals (`#hex` and `rgba()`) in `lib/client.js`, transitioning entirely to native `--dsw-alias-*` tokens and `color-mix(in srgb, ...)`. Ensured full theme compatibility in both dark and light modes, verified by automated regex assertion and preflight scan (0 color literals).
+- **Runtime Integration of Exported Constants & Helpers (#147)**: Connected 6 previously test-only exports (`isLossless`, `ACTIONS`, `PRESENTED_TOOLS`, `describeRecord`, `OPERATION_VERBS`, `TEMPLATE_KEYS`) into production runtime logic across `buildAction`, `sendJson`, `presentationFor`, `createRecords().list()`, and `scaffoldCommunityFiles`. Added runtime input validation and JSON lossless serialization verification; documented locked architectural decisions in `docs/design/DESIGN.md`.
+- **Deployment Script & Explicit Error Handling (#148)**: Added canonical `deploy.sh` script providing standardized `check`, `install`, and `verify` modes with file size gate (<= 256 KiB) and post-deployment validation. Replaced silent `.catch(() => {})` blocks in `lib/auth-device.js`, `lib/tools/mirror.js`, `lib/jobs.js`, and `lib/client.js` with documented best-effort error handlers and logging. Added automated test verifying zero empty catch blocks across `lib/`.
+
 ## 0.6.18
 
 ### Features
